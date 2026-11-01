@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { createApp } from './app.js';
+
+const app = createApp({
+  catalog: {
+    species: async (context) => {
+      if (context.query.fail === 'true') {
+        context.throw(400, 'Invalid test request.');
+      }
+      context.body = { data: [{ id: 'test-species' }] };
+    },
+    speciesDetails: async (context) => {
+      context.body = { data: { id: context.params.id } };
+    },
+    speciesEnrichment: async (context) => {
+      context.body = { data: { id: context.params.id, enrichment: true } };
+    },
+    kingdoms: async (context) => {
+      context.body = { data: [] };
+    },
+    facets: async (context) => {
+      context.body = { data: [] };
+    },
+    image: async (context) => {
+      context.body = { data: null };
+    },
+  },
+  healthCheck: async () => true,
+  config: { corsOrigins: ['http://localhost:5173'] },
+});
+
+test('Express app preserves health, catalog, CORS, and error responses', async () => {
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Test server did not bind to a TCP port.');
+  }
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const health = await fetch(`${baseUrl}/health`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { status: 'ok' });
+
+    const catalog = await fetch(`${baseUrl}/api/catalog/species`, {
+      headers: { Origin: 'http://localhost:5173' },
+    });
+    assert.equal(catalog.status, 200);
+    assert.equal(catalog.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+    assert.deepEqual(await catalog.json(), { data: [{ id: 'test-species' }] });
+
+    const missing = await fetch(`${baseUrl}/api/unknown`);
+    assert.equal(missing.status, 404);
+    assert.deepEqual((await missing.json()).error, {
+      status: 404,
+      name: 'NotFoundError',
+      message: 'Not found.',
+    });
+
+    const invalid = await fetch(`${baseUrl}/api/catalog/species?fail=true`);
+    assert.equal(invalid.status, 400);
+    assert.deepEqual((await invalid.json()).error, {
+      status: 400,
+      name: 'ApplicationError',
+      message: 'Invalid test request.',
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});

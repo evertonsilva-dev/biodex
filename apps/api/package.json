@@ -1,0 +1,42 @@
+{
+  "name": "@biodex/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/src/server.js",
+    "clean": "node --input-type=module -e \"import { rm } from 'node:fs/promises'; await rm('dist', { recursive: true, force: true });\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/src/app.test.js dist/src/catalog/catalog.test.js",
+    "migrate:catalog-cache": "npm run build && node dist/scripts/migrate-catalog-cache.js",
+    "import:col": "npm run build && node dist/scripts/import-col.js",
+    "import:pbdb": "npm run build && node dist/scripts/import-pbdb.js",
+    "export:neon-demo": "npm run build && node dist/scripts/export-neon-demo.js",
+    "replace:neon-catalog": "npm run build && node dist/scripts/replace-neon-catalog.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "csv-parse": "^5.6.0",
+    "csv-stringify": "^6.5.2",
+    "dotenv": "^16.4.5",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "pg": "^8.13.1",
+    "pg-copy-streams": "^6.0.6",
+    "pino-http": "^11.0.0",
+    "unzipper": "^0.12.3",
+    "zod": "^4.6.7"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

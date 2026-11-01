@@ -1,0 +1,619 @@
+import { createInterface } from 'node:readline';
+import { stat } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Transform, Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { parse } from 'csv-parse';
+import { stringify } from 'csv-stringify';
+import dotenv from 'dotenv';
+import pg from 'pg';
+import { from as copyFrom } from 'pg-copy-streams';
+import type { Directory, Entry } from 'unzipper';
+import unzipper from 'unzipper';
+import { CATALOG_CACHE_SCHEMA_SQL } from '../src/database/catalog-cache-schema.js';
+
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(scriptDirectory, '..', '.env') });
+
+type ColMetadataKey = 'key' | 'doi' | 'title' | 'alias' | 'issued' | 'version';
+type ColMetadata = Partial<Record<ColMetadataKey, string>>;
+type ColArchiveRow = Record<string, string>;
+
+interface ColImportTable {
+  stage: string;
+  target: string;
+  columns: string[];
+  archiveEntry: string;
+  map(row: ColArchiveRow): Array<string | undefined>;
+}
+
+const TABLES = {
+  taxonUsage: {
+    stage: 'col_taxon_usage_stage',
+    target: 'col_taxon_usage',
+    columns: [
+      'external_id',
+      'source_id',
+      'parent_external_id',
+      'status',
+      'scientific_name',
+      'authorship',
+      'rank',
+      'extinct',
+      'environment',
+      'kingdom',
+      'phylum',
+      'taxon_class',
+      'taxon_order',
+      'family',
+      'genus',
+      'tax_group',
+      'is_merged',
+    ],
+    archiveEntry: 'NameUsage.tsv',
+    map(row: ColArchiveRow) {
+      return [
+        row['col:ID'],
+        row['col:sourceID'],
+        row['col:parentID'],
+        row['col:status'],
+        row['col:scientificName'],
+        row['col:authorship'],
+        row['col:rank'],
+        row['col:extinct'],
+        row['col:environment'],
+        row['col:kingdom'],
+        row['col:phylum'],
+        row['col:class'],
+        row['col:order'],
+        row['col:family'],
+        row['col:genus'],
+        row['clb:taxGroup'],
+        row['clb:merged'],
+      ];
+    },
+  },
+  vernacularName: {
+    stage: 'col_vernacular_name_stage',
+    target: 'col_vernacular_name',
+    columns: [
+      'taxon_external_id',
+      'source_id',
+      'name',
+      'transliteration',
+      'language',
+      'preferred',
+      'country',
+      'area',
+      'remarks',
+    ],
+    archiveEntry: 'VernacularName.tsv',
+    map(row: ColArchiveRow) {
+      return [
+        row['col:taxonID'],
+        row['col:sourceID'],
+        row['col:name'],
+        row['col:transliteration'],
+        row['col:language'],
+        row['col:preferred'],
+        row['col:country'],
+        row['col:area'],
+        row['col:remarks'],
+      ];
+    },
+  },
+  nameRelation: {
+    stage: 'col_name_relation_stage',
+    target: 'col_name_relation',
+    columns: [
+      'name_external_id',
+      'related_name_external_id',
+      'source_id',
+      'relation_type',
+      'reference_id',
+      'page',
+      'remarks',
+    ],
+    archiveEntry: 'NameRelation.tsv',
+    map(row: ColArchiveRow) {
+      return [
+        row['col:nameID'],
+        row['col:relatedNameID'],
+        row['col:sourceID'],
+        row['col:type'],
+        row['col:referenceID'],
+        row['col:page'],
+        row['col:remarks'],
+      ];
+    },
+  },
+} satisfies Record<string, ColImportTable>;
+
+const CREATE_TABLES_SQL = `
+  CREATE TABLE IF NOT EXISTS col_catalog_import (
+    dataset_id text PRIMARY KEY,
+    title text NOT NULL,
+    doi text,
+    version text,
+    issued text,
+    archive_name text NOT NULL,
+    imported_at timestamptz NOT NULL DEFAULT now(),
+    taxon_usage_rows bigint NOT NULL,
+    accepted_taxa_rows bigint NOT NULL,
+    accepted_species_rows bigint NOT NULL,
+    non_viral_species_rows bigint NOT NULL,
+    vernacular_name_rows bigint NOT NULL,
+    name_relation_rows bigint NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS col_taxon_usage (
+    external_id text PRIMARY KEY,
+    source_id text,
+    parent_external_id text,
+    status text,
+    scientific_name text,
+    authorship text,
+    rank text,
+    extinct text,
+    environment text,
+    kingdom text,
+    phylum text,
+    taxon_class text,
+    taxon_order text,
+    family text,
+    genus text,
+    tax_group text,
+    is_merged text,
+    is_virus boolean NOT NULL DEFAULT false,
+    data_source text NOT NULL DEFAULT 'Catalogue of Life',
+    is_catalog_species boolean NOT NULL DEFAULT true,
+    source_reference text
+  );
+  ALTER TABLE col_taxon_usage
+    ADD COLUMN IF NOT EXISTS data_source text NOT NULL DEFAULT 'Catalogue of Life',
+    ADD COLUMN IF NOT EXISTS is_catalog_species boolean NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS source_reference text;
+
+  CREATE TABLE IF NOT EXISTS col_vernacular_name (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    taxon_external_id text,
+    source_id text,
+    name text,
+    transliteration text,
+    language text,
+    preferred text,
+    country text,
+    area text,
+    remarks text
+  );
+
+  CREATE TABLE IF NOT EXISTS col_name_relation (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    name_external_id text,
+    related_name_external_id text,
+    source_id text,
+    relation_type text,
+    reference_id text,
+    page text,
+    remarks text
+  );
+
+  CREATE TABLE IF NOT EXISTS col_kingdom (
+    name text PRIMARY KEY,
+    slug text NOT NULL,
+    color text NOT NULL,
+    is_virus boolean NOT NULL,
+    accepted_species_count bigint NOT NULL DEFAULT 0
+  );
+
+  CREATE UNLOGGED TABLE IF NOT EXISTS col_taxon_usage_stage
+    (LIKE col_taxon_usage INCLUDING DEFAULTS);
+  CREATE UNLOGGED TABLE IF NOT EXISTS col_vernacular_name_stage (
+    taxon_external_id text,
+    source_id text,
+    name text,
+    transliteration text,
+    language text,
+    preferred text,
+    country text,
+    area text,
+    remarks text
+  );
+  CREATE UNLOGGED TABLE IF NOT EXISTS col_name_relation_stage (
+    name_external_id text,
+    related_name_external_id text,
+    source_id text,
+    relation_type text,
+    reference_id text,
+    page text,
+    remarks text
+  );
+`;
+
+const INDEXES_SQL = `
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_parent_idx
+    ON col_taxon_usage (parent_external_id);
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_kingdom_rank_idx
+    ON col_taxon_usage (kingdom, status, rank, is_virus, scientific_name, external_id);
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_species_scientific_name_idx
+    ON col_taxon_usage (scientific_name, external_id)
+    WHERE status = 'accepted' AND rank = 'species';
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_scientific_name_trgm_idx
+    ON col_taxon_usage USING gin (scientific_name gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_tax_group_trgm_idx
+    ON col_taxon_usage USING gin (tax_group gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS col_taxon_usage_catalog_species_idx
+    ON col_taxon_usage (data_source, is_catalog_species, status, rank);
+  CREATE INDEX IF NOT EXISTS col_vernacular_name_taxon_language_idx
+    ON col_vernacular_name (taxon_external_id, language);
+  CREATE INDEX IF NOT EXISTS col_vernacular_name_name_trgm_idx
+    ON col_vernacular_name USING gin (name gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS col_name_relation_name_idx
+    ON col_name_relation (name_external_id, relation_type);
+  CREATE INDEX IF NOT EXISTS col_name_relation_related_name_idx
+    ON col_name_relation (related_name_external_id);
+`;
+
+function getArgument(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index === -1 ? undefined : process.argv[index + 1];
+}
+
+function printUsage() {
+  console.log('Usage: npm run import:col -- --archive <path-to-zip> [--dry-run] [--force]');
+}
+
+function requiredValue(value: string | undefined, name: string): string {
+  if (!value) {
+    throw new Error(`Missing ${name}.`);
+  }
+  return value;
+}
+
+function parseMetadata(entry: Entry): Promise<ColMetadata> {
+  return new Promise<ColMetadata>((resolveMetadata, reject) => {
+    const values: ColMetadata = {};
+    const input = entry.stream();
+    const lines = createInterface({ input, crlfDelay: Infinity });
+    const metadataKeys = new Set(['key', 'doi', 'title', 'alias', 'issued', 'version']);
+
+    lines.on('line', (line) => {
+      const match = line.match(/^(key|doi|title|alias|issued|version):\s*(.*)$/);
+      if (match && metadataKeys.has(match[1])) {
+        values[match[1] as ColMetadataKey] = match[2].replace(/^['"]|['"]$/g, '');
+      }
+
+      if (Object.keys(values).length === metadataKeys.size) {
+        lines.close();
+      }
+    });
+
+    lines.on('close', () => resolveMetadata(values));
+    lines.on('error', reject);
+  });
+}
+
+async function copyArchiveEntry(
+  client: pg.PoolClient | null,
+  directory: Directory,
+  table: ColImportTable,
+  dryRun = false,
+): Promise<number> {
+  const entry = directory.files.find((file: Entry) => file.path === table.archiveEntry);
+  if (!entry || entry.type !== 'File') {
+    throw new Error(`Required archive entry "${table.archiveEntry}" was not found.`);
+  }
+
+  console.log(`Streaming ${table.archiveEntry} (${(entry.uncompressedSize / 1024 ** 3).toFixed(2)} GiB)...`);
+  let rowCount = 0;
+  const mapper = new Transform({
+    writableObjectMode: true,
+    readableObjectMode: true,
+    transform(row: ColArchiveRow, _encoding, callback) {
+      const values = table.map(row);
+      if (table === TABLES.taxonUsage && !values[0]) {
+        callback(new Error('NameUsage.tsv contains a row without col:ID.'));
+        return;
+      }
+      rowCount += 1;
+      callback(null, values);
+    },
+  });
+  const parser = parse({
+    bom: true,
+    columns: true,
+    delimiter: '\t',
+    quote: false,
+    skip_empty_lines: true,
+  });
+  const formatter = stringify({
+    delimiter: '\t',
+    quoted: true,
+    record_delimiter: '\n',
+  });
+  const copyColumns = table.columns.map((column) => `"${column}"`).join(', ');
+  const sink = (() => {
+    if (dryRun) {
+      return new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    }
+    if (!client) {
+      throw new Error('A database client is required unless --dry-run is enabled.');
+    }
+    return client.query(copyFrom(
+      `COPY ${table.stage} (${copyColumns}) FROM STDIN WITH (FORMAT csv, DELIMITER E'\\t', NULL '')`,
+    ));
+  })();
+
+  await pipeline(entry.stream(), parser, mapper, formatter, sink);
+  console.log(`Validated ${rowCount.toLocaleString()} rows from ${table.archiveEntry}.`);
+  return rowCount;
+}
+
+function mapSpeciesRow(row: Record<string, string | number>) {
+  return {
+    taxonUsageRows: Number(row.taxon_usage_rows),
+    acceptedTaxaRows: Number(row.accepted_taxa_rows),
+    acceptedSpeciesRows: Number(row.accepted_species_rows),
+    nonViralSpeciesRows: Number(row.non_viral_species_rows),
+    vernacularNameRows: Number(row.vernacular_name_rows),
+    nameRelationRows: Number(row.name_relation_rows),
+  };
+}
+
+async function main() {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    printUsage();
+    return;
+  }
+
+  const archivePath = resolve(requiredValue(getArgument('--archive'), '--archive <path-to-zip>'));
+  const force = process.argv.includes('--force');
+  const dryRun = process.argv.includes('--dry-run');
+  const archiveStats = await stat(archivePath);
+
+  const directory = await unzipper.Open.file(archivePath);
+  const entries = new Map(directory.files.map((entry) => [entry.path, entry]));
+  const requiredEntries = ['metadata.yaml', ...Object.values(TABLES).map((table) => table.archiveEntry)];
+
+  for (const entryName of requiredEntries) {
+    if (!entries.has(entryName)) {
+      throw new Error(`The ZIP is missing required entry "${entryName}".`);
+    }
+  }
+
+  const metadataEntry = entries.get('metadata.yaml');
+  if (!metadataEntry) {
+    throw new Error('The ZIP is missing required entry "metadata.yaml".');
+  }
+  const metadata = await parseMetadata(metadataEntry);
+  const datasetId = `${metadata.alias || metadata.title || 'Catalogue of Life'}:${metadata.version || metadata.issued || 'unknown'}`;
+  if (dryRun) {
+    const tableRows: Record<string, number> = {};
+    for (const table of Object.values(TABLES)) {
+      tableRows[table.archiveEntry] = await copyArchiveEntry(null, directory, table, true);
+    }
+    console.log(JSON.stringify({
+      dataset: datasetId,
+      doi: metadata.doi,
+      archiveBytes: archiveStats.size,
+      dryRun: true,
+      tableRows,
+    }, null, 2));
+    return;
+  }
+
+  if (process.env.DATABASE_CLIENT !== 'postgres') {
+    throw new Error('Set DATABASE_CLIENT=postgres in apps/api/.env before importing the catalog.');
+  }
+
+  const { Pool } = pg;
+  const pool = new Pool({
+    host: process.env.DATABASE_HOST || '127.0.0.1',
+    port: Number(process.env.DATABASE_PORT || 5432),
+    database: process.env.DATABASE_NAME || 'biodex',
+    user: process.env.DATABASE_USERNAME || 'biodex',
+    password: requiredValue(process.env.DATABASE_PASSWORD, 'DATABASE_PASSWORD'),
+    ssl: process.env.DATABASE_SSL === 'true',
+  });
+
+  const client = await pool.connect();
+  try {
+    await client.query(CREATE_TABLES_SQL);
+    await client.query(CATALOG_CACHE_SCHEMA_SQL);
+    const previousImport = await client.query(
+      'SELECT dataset_id FROM col_catalog_import WHERE dataset_id = $1',
+      [datasetId],
+    );
+    if ((previousImport.rowCount ?? 0) > 0 && !force) {
+      console.log(`${datasetId} is already imported. Use --force to replace it.`);
+      return;
+    }
+
+    await client.query(`
+      TRUNCATE col_taxon_usage_stage;
+      TRUNCATE col_vernacular_name_stage;
+      TRUNCATE col_name_relation_stage;
+    `);
+
+    for (const table of Object.values(TABLES)) {
+      await copyArchiveEntry(client, directory, table);
+    }
+
+    const countsResult = await client.query(`
+      SELECT
+        count(*)::text AS taxon_usage_rows,
+        count(*) FILTER (WHERE status = 'accepted')::text AS accepted_taxa_rows,
+        count(*) FILTER (WHERE status = 'accepted' AND rank = 'species')::text AS accepted_species_rows,
+        count(*) FILTER (
+          WHERE status = 'accepted' AND rank = 'species'
+            AND lower(coalesce(kingdom, '')) NOT LIKE '%virae'
+        )::text AS non_viral_species_rows
+      FROM col_taxon_usage_stage
+    `);
+    const counts = mapSpeciesRow(countsResult.rows[0]);
+    counts.vernacularNameRows = Number((await client.query(
+      'SELECT count(*)::text AS count FROM col_vernacular_name_stage',
+    )).rows[0].count);
+    counts.nameRelationRows = Number((await client.query(
+      'SELECT count(*)::text AS count FROM col_name_relation_stage',
+    )).rows[0].count);
+
+    if (counts.taxonUsageRows === 0 || counts.acceptedSpeciesRows === 0) {
+      throw new Error('The imported archive contains no taxonomic usages or accepted species.');
+    }
+
+    await client.query('BEGIN');
+    try {
+      await client.query(`
+        DELETE FROM col_name_relation;
+        DELETE FROM col_vernacular_name
+        WHERE taxon_external_id IN (
+          SELECT external_id
+          FROM col_taxon_usage
+          WHERE data_source = 'Catalogue of Life'
+        );
+        DELETE FROM col_taxon_usage
+        WHERE data_source = 'Catalogue of Life';
+      `);
+      await client.query(`
+        INSERT INTO col_taxon_usage (
+          external_id, source_id, parent_external_id, status, scientific_name, authorship,
+          rank, extinct, environment, kingdom, phylum, taxon_class, taxon_order, family,
+          genus, tax_group, is_merged, is_virus, data_source
+        )
+        SELECT
+          external_id, source_id, parent_external_id, status, scientific_name, authorship,
+          rank, extinct, environment, kingdom, phylum, taxon_class, taxon_order, family,
+          genus, tax_group, is_merged,
+          lower(coalesce(kingdom, '')) LIKE '%virae',
+          'Catalogue of Life'
+        FROM col_taxon_usage_stage;
+      `);
+
+      await client.query(`
+        INSERT INTO col_vernacular_name (
+          taxon_external_id, source_id, name, transliteration, language, preferred,
+          country, area, remarks
+        )
+        SELECT
+          taxon_external_id, source_id, name, transliteration, language, preferred,
+          country, area, remarks
+        FROM col_vernacular_name_stage;
+      `);
+
+      await client.query(`
+        INSERT INTO col_name_relation (
+          name_external_id, related_name_external_id, source_id, relation_type,
+          reference_id, page, remarks
+        )
+        SELECT
+          name_external_id, related_name_external_id, source_id, relation_type,
+          reference_id, page, remarks
+        FROM col_name_relation_stage;
+      `);
+
+      await client.query(`
+        DELETE FROM col_kingdom kingdom
+        WHERE NOT EXISTS (
+          SELECT 1 FROM col_taxon_usage taxon
+          WHERE taxon.kingdom = kingdom.name
+        );
+        INSERT INTO col_kingdom (name, slug, color, is_virus, accepted_species_count)
+        SELECT
+          kingdom,
+          trim(both '-' FROM regexp_replace(lower(kingdom), '[^a-z0-9]+', '-', 'g')),
+          CASE
+            WHEN lower(kingdom) = 'animalia' THEN '#c94c4c'
+            WHEN lower(kingdom) = 'plantae' THEN '#3e8b57'
+            WHEN lower(kingdom) = 'fungi' THEN '#8b5e3c'
+            WHEN lower(kingdom) = 'chromista' THEN '#d19a2e'
+            WHEN lower(kingdom) = 'protozoa' THEN '#7a63a8'
+            WHEN lower(kingdom) LIKE '%virae' THEN '#64748b'
+            ELSE '#557b68'
+          END,
+          lower(kingdom) LIKE '%virae',
+          count(*) FILTER (
+            WHERE status = 'accepted' AND rank = 'species' AND is_catalog_species
+          )
+        FROM col_taxon_usage
+        WHERE kingdom IS NOT NULL AND kingdom <> ''
+        GROUP BY kingdom
+        ON CONFLICT (name) DO UPDATE SET
+          slug = EXCLUDED.slug,
+          color = EXCLUDED.color,
+          is_virus = EXCLUDED.is_virus,
+          accepted_species_count = EXCLUDED.accepted_species_count;
+      `);
+
+      await client.query(`
+        INSERT INTO col_catalog_import (
+          dataset_id, title, doi, version, issued, archive_name, imported_at,
+          taxon_usage_rows, accepted_taxa_rows, accepted_species_rows,
+          non_viral_species_rows, vernacular_name_rows, name_relation_rows
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (dataset_id) DO UPDATE SET
+          title = EXCLUDED.title,
+          doi = EXCLUDED.doi,
+          version = EXCLUDED.version,
+          issued = EXCLUDED.issued,
+          archive_name = EXCLUDED.archive_name,
+          imported_at = EXCLUDED.imported_at,
+          taxon_usage_rows = EXCLUDED.taxon_usage_rows,
+          accepted_taxa_rows = EXCLUDED.accepted_taxa_rows,
+          accepted_species_rows = EXCLUDED.accepted_species_rows,
+          non_viral_species_rows = EXCLUDED.non_viral_species_rows,
+          vernacular_name_rows = EXCLUDED.vernacular_name_rows,
+          name_relation_rows = EXCLUDED.name_relation_rows;
+      `, [
+        datasetId,
+        metadata.title || 'Catalogue of Life',
+        metadata.doi || null,
+        metadata.version || null,
+        metadata.issued || null,
+        basename(archivePath),
+        counts.taxonUsageRows,
+        counts.acceptedTaxaRows,
+        counts.acceptedSpeciesRows,
+        counts.nonViralSpeciesRows,
+        counts.vernacularNameRows,
+        counts.nameRelationRows,
+      ]);
+      await client.query(INDEXES_SQL);
+      await client.query('TRUNCATE TABLE col_species_image_cache, col_species_enrichment_cache');
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+
+    await client.query(`
+      DROP TABLE col_taxon_usage_stage;
+      DROP TABLE col_vernacular_name_stage;
+      DROP TABLE col_name_relation_stage;
+      ANALYZE col_taxon_usage;
+      ANALYZE col_vernacular_name;
+      ANALYZE col_name_relation;
+    `);
+
+    console.log(JSON.stringify({
+      dataset: datasetId,
+      doi: metadata.doi,
+      archiveBytes: archiveStats.size,
+      ...counts,
+      kingdoms: (await client.query(
+        'SELECT name, is_virus, accepted_species_count FROM col_kingdom ORDER BY is_virus, name',
+      )).rows,
+    }, null, 2));
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+main().catch((error: unknown) => {
+  console.error(`Catalogue import failed: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+});

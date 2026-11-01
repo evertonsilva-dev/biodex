@@ -1,0 +1,1 @@
+export { Artwork, ArtworkColumn, Authorship, BackLink, Badge, Badges, CommonName, Content, Eyebrow, Footer, GalleryFrame, Hero, HeroInfo, MainColumn, RepresentativeNote, SidebarColumn, ScientificName } from '../SpeciesDetailPage/styles';

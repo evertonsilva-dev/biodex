@@ -1,0 +1,159 @@
+# Biodex
+
+Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projeto é um monorepo com frontend React/Vite e uma API Node.js; a primeira versão não é um jogo.
+
+## Stack
+
+- **Web:** React, TypeScript, Vite, styled-components e TanStack Query.
+- **API:** Node.js e TypeScript, Express 5, PostgreSQL (`pg`), validação de ambiente, middleware de segurança HTTP e logs estruturados.
+- **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa apenas a API e nunca recebe credenciais do banco.
+
+## Estrutura
+
+```text
+apps/
+  api/
+    src/
+      app.ts                  configuração Express, middlewares e health check
+      server.ts               inicialização e encerramento gracioso
+      config/env.ts           leitura e validação das variáveis de ambiente
+      database/pool.ts        pool compartilhado do PostgreSQL
+      database/query.ts       cliente SQL parametrizado
+      database/catalog-readiness.ts
+                              validação das tabelas necessárias para servir o catálogo
+      database/catalog-cache-schema.ts
+                              schema idempotente dos caches de imagens e enriquecimento
+      routes/                 rotas HTTP do catálogo
+      http/                   controllers Express e erros HTTP
+      catalog/
+        controllers/          endpoints e regras de negócio do catálogo
+        services/images.ts   consultas licenciadas a fontes de imagens
+        utils/species-enrichment.ts
+                              enriquecimento científico e cache de fontes externas
+    dist/                     JavaScript compilado pelo TypeScript
+    scripts/                  importação, migração e manutenção dos dados
+  web/                        aplicação React
+```
+
+## Requisitos
+
+- Node.js 22.19+
+- npm 10+
+
+## Desenvolvimento
+
+1. Instale as dependências na raiz:
+
+   ```sh
+   npm install
+   ```
+
+2. Configure a API copiando `apps/api/.env.example` para `apps/api/.env` e preenchendo a conexão PostgreSQL. Use `DATABASE_URL` pooled para a API e mantenha as variáveis individuais se os importadores precisarem acessar um PostgreSQL local.
+
+3. Inicie a API:
+
+   ```sh
+   npm run dev:api
+   ```
+
+4. Em outro terminal, inicie o frontend:
+
+   ```sh
+   npm run dev
+   ```
+
+   O frontend usa `VITE_API_URL` (padrão `http://localhost:1337/api`). Para alterar, crie `apps/web/.env.local` com essa variável. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
+
+Para compilar a API, execute `npm run build:api`. Para compilar e validar as rotas e middlewares sem conectar ao banco, execute `npm test --workspace @biodex/api`. Em desenvolvimento, `tsx watch` executa os arquivos TypeScript diretamente; em produção, `npm run start:api` executa a saída compilada em `apps/api/dist`.
+
+Antes de iniciar a API em um banco já existente, aplique o schema dos caches:
+
+```sh
+npm run migrate:catalog-cache
+```
+
+A migração é idempotente. Em Neon, mantenha `DATABASE_URL` pooled para a API e configure também `DATABASE_URL_UNPOOLED`; o comando valida que ambas apontam para o mesmo banco e usa a conexão direta. Os importadores do Catalogue of Life e da PBDB também preparam esse schema. O health check verifica as tabelas do catálogo e dos caches e retorna `503` quando a instalação estiver incompleta.
+
+## Importação do Catalogue of Life
+
+O ZIP fornecido é o Catalogue of Life **COL26.10 XR**, DOI `10.48580/dgzlf`. O discovery encontrou 19.449 entradas, 1,39 GB compactados e 5,32 GB descompactados. `NameUsage.tsv` contém 8.504.545 usos de nomes, incluindo 5.075.242 aceitos, 3.118.808 sinônimos, 140.657 sinônimos ambíguos e 7.021 nomes misaplicados. São 2.359.753 espécies aceitas. O pacote também contém 2.051.390 nomes vernaculares, dos quais 74.888 estão marcados como português (`por`); não inclui imagens de espécies.
+
+O importador lê os arquivos diretamente do ZIP, sem extrair os 5,32 GB para disco. Importa `NameUsage.tsv`, `VernacularName.tsv` e `NameRelation.tsv`; referências bibliográficas, distribuições, material-tipo e metadados individuais das fontes ficam para uma etapa posterior. O identificador original do Catalogue of Life e o DOI da versão são preservados. Os registros virais são identificados separadamente; a listagem padrão omite vírus, e eles aparecem ao selecionar uma categoria viral. Cada táxon também guarda a origem dos dados, permitindo atualizar o Catalogue of Life sem apagar registros importados de outras bases.
+
+### Requisitos para importar
+
+- PostgreSQL com `pg_trgm` disponível para as buscas.
+- Configure `DATABASE_CLIENT=postgres`, `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME` e `DATABASE_PASSWORD` em `apps/api/.env`.
+- Reserve espaço para as tabelas e índices do banco. A carga é transacional e pode exigir vários gigabytes além do arquivo ZIP.
+
+Faça primeiro uma validação integral do ZIP, sem PostgreSQL:
+
+```sh
+npm run import:col --workspace @biodex/api -- --archive "C:\caminho\para\catalogue.zip" --dry-run
+```
+
+Após configurar e iniciar o PostgreSQL, execute a ingestão:
+
+```sh
+npm run import:col --workspace @biodex/api -- --archive "C:\caminho\para\catalogue.zip"
+```
+
+O importador não substitui os dados por padrão quando a mesma versão já existe. Use `--force` somente para substituir/recarregar explicitamente a versão. Após uma carga efetiva, os caches de imagens e enriquecimento são limpos para não reaproveitar dados da taxonomia anterior.
+
+## Importação de dinossauros da Paleobiology Database
+
+O importador complementar consulta a API pública da [Paleobiology Database](https://paleobiodb.org/), sem exigir chave. Ele importa espécies fósseis aceitas de Dinosauria que a PBDB classifica como regulares, além dos táxons ancestrais necessários para montar a classificação completa. Cada registro recebe um identificador `pbdb:` e a origem fica explícita; somente as espécies-alvo aparecem como cartas. A classificação mantém os ranks da fonte: por exemplo, `Reptilia` é a classe e `Dinosauria` é apresentado como grupo taxonômico, não como classe formal.
+
+Com PostgreSQL configurado em `apps/api/.env`, valide primeiro a resposta e a árvore taxonômica:
+
+```sh
+npm run import:pbdb --workspace @biodex/api -- --dry-run
+```
+
+Depois importe ou atualize os registros PBDB:
+
+```sh
+npm run import:pbdb --workspace @biodex/api
+```
+
+A atualização substitui apenas os registros da Paleobiology Database e é transacional; não remove registros nem edições do Catalogue of Life. A busca por `Dinosauria` encontra o grupo taxonômico, e a ficha exibe a fonte e a referência bibliográfica retornada pela PBDB. Após a importação, o cache de imagens é limpo e somente o cache de enriquecimento dos identificadores `pbdb:` é invalidado. A API e o conjunto de dados podem mudar ao longo do tempo.
+
+## Banco reduzido para demonstração no Neon
+
+Para publicar uma demonstração usando o limite gratuito de armazenamento, gere um pacote a partir do PostgreSQL local:
+
+```sh
+npm run export:neon-demo --workspace @biodex/api
+```
+
+O exportador seleciona até 250 espécies aceitas de cada reino do Catalogue of Life, prioriza táxons com nomes em português/inglês, inclui algumas espécies conhecidas e mantém todas as espécies de dinossauros da Paleobiology Database já importadas. Os ancestrais taxonômicos necessários, até cinco nomes vernaculares em português/inglês por táxon e relações entre táxons preservados também são incluídos. Use `--per-kingdom 250` para controlar a amostra por reino ou `--total-species 200000` para distribuir uma meta total proporcionalmente entre reinos. Os arquivos são escritos em `apps/api/.tmp/neon-demo-<data>`.
+
+O pacote contém CSVs do catálogo reduzido e `manifest.json` com contagens/estimativa. O banco de origem não é alterado e o script requer PostgreSQL em `apps/api/.env` e um diretório de saída vazio.
+
+Para atualizar somente o catálogo de um banco Neon já existente, crie primeiro um branch de backup e gere o pacote maior:
+
+```powershell
+npm run export:neon-demo --workspace @biodex/api -- --total-species 200000 --output .tmp/neon-demo-200k
+npm run replace:neon-catalog --workspace @biodex/api -- --input .tmp/neon-demo-200k
+```
+
+O segundo comando valida o pacote e as URLs `DATABASE_URL` (pooled) e `DATABASE_URL_UNPOOLED` (direct), sem gravar alterações. Acrescente `--apply` para substituir, em uma transação, as quatro tabelas do catálogo e limpar os caches derivados de taxonomia. Ele confere espécies, dinossauros, ancestrais e referências sem destino, roda `ANALYZE` e interrompe a transação se o banco chegar a 900 MB. Nunca publique a connection string ou o pacote junto ao código-fonte.
+
+Para a API em produção, defina `DATABASE_URL` com a URL **pooled** do Neon e `CORS_ORIGINS` com a origem pública do frontend. Use `DATABASE_URL_UNPOOLED` para importações e operações de banco. Em produção, configure `VITE_API_URL` com a URL pública da API terminada em `/api`.
+
+## Informações complementares e sons
+
+Ao abrir uma ficha, `GET /api/catalog/species/:id/enrichment` busca informações adicionais sob demanda e mantém um cache PostgreSQL por espécie. O iNaturalist pode fornecer nome comum, resumo enciclopédico, observações e avaliação de conservação; o GBIF pode fornecer contagem de ocorrências e países com registros. Para espécies extintas, a PBDB pode acrescentar intervalos geológicos, idades aproximadas, localidades e referências, consultando até 100 ocorrências correspondentes.
+
+Para espécies viventes de Animalia, a ficha também procura áudio nos registros multimídia do GBIF. Só são exibidas gravações com URL HTTPS e licença Creative Commons ou domínio público reconhecida, com autoria, licença e link para o registro. O nome identificado no registro fica visível, pois pode ser de uma subespécie. O player personalizado usa os controles de mídia do navegador por trás de uma interface própria com barras estilizadas, progresso e busca; iniciar outra gravação pausa a anterior. A reprodução começa diretamente no áudio e não depende da leitura cross-origin necessária para gerar uma forma de onda. A ficha também mostra um mapa de densidade de ocorrências georreferenciadas do GBIF sobre um mapa-base monocromático servido pelo GBIF, com dados cartográficos do OpenStreetMap. O mapa mostra registros conhecidos, não limites de endemismo nem toda a distribuição da espécie; os tiles são carregados diretamente do GBIF. A galeria usa `react-image-gallery`, com miniaturas, navegação por toque/teclado e tela cheia; quando disponível, o fullscreen carrega a imagem original em resolução máxima. Os dados complementares são armazenados por 30 dias; respostas parciais por falha de fonte expiram em 12 horas.
+
+A ViralZone é apresentada como uma fonte externa para vírus, sem copiar seu conteúdo: não foi encontrada uma API pública estável para integrar suas fichas automaticamente. As fontes podem não ter dados para todas as espécies e podem ficar temporariamente indisponíveis; isso não impede o carregamento da ficha principal.
+
+Endpoints:
+
+- `GET /api/catalog/species?page=1&pageSize=48&search=...&kingdom=...&phylum=...&class=...&order=...&family=...&genus=...&extinct=true`
+- `GET /api/catalog/species/:id` retorna o registro completo disponível de uma espécie aceita, incluindo sua ancestralidade taxonômica, autoria, informações sobre extinção e ambiente, nomes vernaculares, nomes e relações vinculados, identificadores das fontes e metadados da edição importada.
+- `GET /api/catalog/species/:id/enrichment` retorna descrições atribuídas às respectivas fontes e armazenadas em cache, informações de conservação e ocorrências, registros fósseis e, quando disponíveis, áudios licenciados de animais.
+- `GET /api/catalog/kingdoms`
+- `GET /api/catalog/facets?field=phylum&kingdom=animalia` retorna opções taxonômicas limitadas ao táxon superior selecionado. Os campos aceitos são `kingdom`, `phylum`, `class`, `order`, `family` e `genus`.
+- `GET /api/catalog/image?scientificName=Panthera%20leo` consulta iNaturalist, ocorrências do GBIF e Wikimedia Commons, nessa ordem. Para uma correspondência exata, o nome científico deve constar nos metadados da imagem, que também precisa ter uma licença Creative Commons ou de domínio público reconhecida. Se nenhuma imagem da espécie for encontrada, o sistema procura imagens representativas nos táxons ancestrais imediatos e superiores (gênero, família, ordem, classe, filo e reino), usando fotos de táxons do iNaturalist e o Wikimedia Commons em cada nível. Para vírus, a busca usa termos relacionados a vírions, ilustrações e micrografias. Os resultados incluem o nível taxonômico e o nome do táxon representado, e nunca são apresentados como imagens específicas da espécie. Acrescente `&gallery=true` para solicitar até oito fotos licenciadas para a galeria da ficha; os resultados da galeria são armazenados em cache no PostgreSQL junto com a imagem principal. Resultados positivos ficam em cache por 180 dias e buscas sem resultado, por 14 dias, em `col_species_image_cache`. Buscas sem resultado feitas pelo mecanismo de fallback anterior são repetidas; falhas dos provedores não são armazenadas em cache.
