@@ -1,6 +1,7 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { GalleryItem } from 'react-image-gallery';
+import { apiOrigin } from '../../api/client';
 import { getSpeciesEnrichment } from '../../api/species-enrichment';
 import { getSpeciesImage, type SpeciesImagePhoto } from '../../api/species-image';
 import type { SpeciesDetail } from '../../types/species';
@@ -28,7 +29,7 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   const editorialImage = species.image?.url
     ? new URL(
         species.image.url,
-        import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ?? 'http://localhost:1337',
+        apiOrigin,
       ).toString()
     : undefined;
   const apiImages = imageQuery.data?.images?.length

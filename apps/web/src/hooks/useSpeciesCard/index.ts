@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiOrigin } from '../../api/client';
 import { getSpeciesImage } from '../../api/species-image';
 import type { Species } from '../../types/species';
 import type { UseSpeciesCardResult } from './types';
@@ -33,7 +34,7 @@ export function useSpeciesCard(species: Species): UseSpeciesCardResult {
   const editorialImage = species.image?.url
     ? new URL(
         species.image.url,
-        import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ?? 'http://localhost:1337',
+        apiOrigin,
       ).toString()
     : undefined;
   const imageQuery = useQuery({

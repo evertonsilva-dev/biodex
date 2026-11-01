@@ -146,10 +146,6 @@ const CC_LICENSES = new Map([
 
 export class SupplementalDataUnavailableError extends Error {}
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function canonicalTaxonName(value: string): string {
   return value
     .trim()

@@ -5,7 +5,7 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 ## Stack
 
 - **Web:** React, TypeScript, Vite, styled-components e TanStack Query.
-- **API:** Node.js e TypeScript, Express 5, PostgreSQL (`pg`), validação de ambiente, middleware de segurança HTTP e logs estruturados.
+- **API:** Node.js e TypeScript, Express 5, PostgreSQL (`pg`), validação de ambiente, middleware de segurança HTTP e logs estruturados; pode ser executada em Node.js ou Cloudflare Workers.
 - **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa apenas a API e nunca recebe credenciais do banco.
 
 ## Estrutura
@@ -32,7 +32,10 @@ apps/
                               enriquecimento científico e cache de fontes externas
     dist/                     JavaScript compilado pelo TypeScript
     scripts/                  importação, migração e manutenção dos dados
-  web/                        aplicação React
+  web/
+    src/                      aplicação React
+    worker/index.ts           adaptador da API Express para Cloudflare
+    wrangler.jsonc             configuração do Worker, assets e Hyperdrive
 ```
 
 ## Requisitos
@@ -65,6 +68,25 @@ apps/
    O frontend usa `VITE_API_URL` (padrão `http://localhost:1337/api`). Para alterar, crie `apps/web/.env.local` com essa variável. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
 
 Para compilar a API, execute `npm run build:api`. Para compilar e validar as rotas e middlewares sem conectar ao banco, execute `npm test --workspace @biodex/api`. Em desenvolvimento, `tsx watch` executa os arquivos TypeScript diretamente; em produção, `npm run start:api` executa a saída compilada em `apps/api/dist`.
+
+## Deploy gratuito na Cloudflare
+
+O deploy usa um único Cloudflare Worker para servir o frontend React/Vite como arquivos estáticos e encaminhar `/api/*` e `/health` para a API Express. O banco permanece no Neon; o acesso é feito pelo binding Hyperdrive `HYPERDRIVE`. O deploy exige uma conta Cloudflare e uma configuração Hyperdrive apontando para o banco Neon.
+
+1. No Neon, crie um usuário de banco para a aplicação com as permissões necessárias e copie a conexão direta (sem `-pooler`). O Hyperdrive fará o pool de conexões. Não coloque a URL de conexão em arquivos versionados.
+2. No Cloudflare, crie uma configuração Hyperdrive para essa conexão e associe-a ao Worker `biodex`. Substitua o ID de exemplo em `apps/web/wrangler.jsonc` pelo ID da configuração criada.
+3. Faça login na Cloudflare pelo Wrangler e publique:
+
+   ```sh
+   npx wrangler login
+   npm run deploy:cloudflare
+   ```
+
+4. O endpoint `/health` valida a conexão e as tabelas necessárias do catálogo. Se retornar `503`, aplique antes o schema de cache e importe os dados do catálogo.
+
+Para desenvolver localmente com o Worker e Hyperdrive, defina `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` no ambiente com uma conexão PostgreSQL direta e execute `npm run dev:cloudflare`. Essa variável é local e não deve ser compartilhada ou versionada. Use um banco local ou um branch de desenvolvimento, pois o modo local conecta diretamente ao banco; o pool otimizado do Hyperdrive só é usado no Worker publicado.
+
+No plano gratuito da Cloudflare, Workers têm limite de 100 mil requisições por dia e 10 ms de CPU por invocação; Hyperdrive permite até 100 mil consultas ao banco por dia. As requisições de arquivos estáticos não contam como requisições do Worker. Confira os [limites do Workers](https://developers.cloudflare.com/workers/platform/pricing/) e do [Hyperdrive](https://developers.cloudflare.com/hyperdrive/platform/pricing/) antes de um lançamento com tráfego significativo.
 
 Antes de iniciar a API em um banco já existente, aplique o schema dos caches:
 

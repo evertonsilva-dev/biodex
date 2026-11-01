@@ -8,6 +8,9 @@ dist/
 build/
 coverage/
 .neon
+.wrangler/
+.dev.vars*
+worker-configuration.d.ts
 *.tsbuildinfo
 *.log
 npm-debug.log*

@@ -12,11 +12,13 @@
   "scripts": {
     "dev": "npm run dev --workspace @biodex/web",
     "dev:web": "npm run dev --workspace @biodex/web",
+    "dev:cloudflare": "npm run dev:cloudflare --workspace @biodex/web",
     "dev:api": "npm run dev --workspace @biodex/api",
     "start:api": "npm run start --workspace @biodex/api",
     "migrate:catalog-cache": "npm run migrate:catalog-cache --workspace @biodex/api",
     "build": "npm run build --workspace @biodex/web",
-    "build:api": "npm run build --workspace @biodex/api"
+    "build:api": "npm run build --workspace @biodex/api",
+    "deploy:cloudflare": "npm run build --workspace @biodex/web -- --mode cloudflare && npm run deploy --workspace @biodex/web"
   },
   "dependencies": {
     "@neon/config": "^1.10.0",
