@@ -1,6 +1,6 @@
 type TaxonomyLevel = 'phylum' | 'class' | 'order' | 'family' | 'genus';
 
-export const IMAGE_CACHE_VERSION = 'v3';
+export const IMAGE_CACHE_VERSION = 'v4';
 export const IMAGE_CACHE_TTL_DAYS = 180;
 export const EMPTY_IMAGE_CACHE_TTL_DAYS = 14;
 
@@ -443,9 +443,34 @@ function matchesCommonsName(page: CommonsPage, imageInfo: CommonsImageInfo, name
     page.title,
     htmlText(metadata.ObjectName?.value),
     htmlText(metadata.ImageDescription?.value),
-    htmlText(metadata.Categories?.value),
   ].map(normalizeSearchText);
   return exactFields.some((value) => value.includes(canonicalName));
+}
+
+function commonsImageRelevance(
+  page: CommonsPage,
+  imageInfo: CommonsImageInfo,
+  name: string,
+): number | null {
+  const canonicalName = normalizeSearchText(canonicalTaxonName(name));
+  const metadata = imageInfo.extmetadata || {};
+  const title = normalizeSearchText(page.title);
+  const objectName = normalizeSearchText(htmlText(metadata.ObjectName?.value));
+  const description = normalizeSearchText(htmlText(metadata.ImageDescription?.value));
+  const identifiedFields = [title, objectName, description];
+  if (!identifiedFields.some((field) => field.includes(canonicalName))) {
+    return null;
+  }
+
+  const mediaDescription = identifiedFields.join(' ');
+  const nonPhotographicMedia = /\b(?:skull|skeleton|fossil|bones?|illustration|diagram|drawing|painting|map|distribution|logo|icon|statue|sculpture|figurine|toy|plush|taxidermy|stamp|coin)\b/;
+  if (nonPhotographicMedia.test(mediaDescription)) {
+    return null;
+  }
+
+  return (title.includes(canonicalName) ? 100 : 0)
+    + (objectName.includes(canonicalName) ? 80 : 0)
+    + (description.includes(canonicalName) ? 60 : 0);
 }
 
 interface CommonsImageOptions {
@@ -469,15 +494,12 @@ async function findCommonsImage(
   { exactName, representative = false, rank = null, keywords = [], limit = 1 }: CommonsImageOptions = {},
 ): Promise<SpeciesImage | SpeciesImage[] | null> {
   const searchTerms = exactName
-    ? [
-        `"${canonicalScientificName(searchName)}"`,
-        `"${canonicalScientificName(searchName)}" micrograph`,
-        `"${canonicalScientificName(searchName)}" microscopy`,
-      ]
+    ? [`"${canonicalScientificName(searchName)}"`, `"${canonicalScientificName(searchName)}" photo`]
     : keywords.map((keyword) => keyword ? `"${searchName}" ${keyword}` : `"${searchName}"`);
 
-  const images = [];
+  const candidates: Array<{ image: SpeciesImage; relevance: number; index: number }> = [];
   const seenUrls = new Set();
+  let candidateIndex = 0;
   for (const searchTerm of searchTerms) {
     const params = new URLSearchParams({
       action: 'query',
@@ -496,7 +518,11 @@ async function findCommonsImage(
 
     for (const page of pages) {
       const imageInfo = page.imageinfo?.[0];
-      if (!imageInfo || !imageInfo.mime?.startsWith('image/')) {
+      if (
+        !imageInfo
+        || !imageInfo.mime?.startsWith('image/')
+        || imageInfo.mime === 'image/svg+xml'
+      ) {
         continue;
       }
 
@@ -509,12 +535,12 @@ async function findCommonsImage(
         continue;
       }
 
-      if (exactName && !matchesCommonsName(page, imageInfo, exactName)) {
-        continue;
-      }
-
       const relevanceName = exactName || searchName;
       if (!matchesCommonsName(page, imageInfo, relevanceName)) {
+        continue;
+      }
+      const relevance = commonsImageRelevance(page, imageInfo, relevanceName);
+      if (relevance === null) {
         continue;
       }
 
@@ -525,24 +551,30 @@ async function findCommonsImage(
         continue;
       }
       seenUrls.add(imageUrl);
-      images.push({
-        url: imageUrl,
-        fullscreenUrl: fullscreenUrl || imageUrl,
-        source: 'Wikimedia Commons',
-        attribution,
-        license,
-        referenceUrl: descriptionUrl,
-        isRepresentative: representative,
-        representativeRank: rank,
-        representativeTaxonName: representative ? searchName : null,
+      candidates.push({
+        image: {
+          url: imageUrl,
+          fullscreenUrl: fullscreenUrl || imageUrl,
+          source: 'Wikimedia Commons',
+          attribution,
+          license,
+          referenceUrl: descriptionUrl,
+          isRepresentative: representative,
+          representativeRank: rank,
+          representativeTaxonName: representative ? searchName : null,
+        },
+        relevance,
+        index: candidateIndex,
       });
-      if (images.length >= limit) {
-        return limit === 1 ? images[0] : images;
-      }
+      candidateIndex += 1;
     }
   }
 
-  return limit === 1 ? null : images;
+  const images = candidates
+    .sort((left, right) => right.relevance - left.relevance || left.index - right.index)
+    .slice(0, limit)
+    .map(({ image }) => image);
+  return limit === 1 ? images[0] ?? null : images;
 }
 
 async function findCommonsRepresentative(taxon: TaxonImageRow): Promise<SpeciesImage | null> {

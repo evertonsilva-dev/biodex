@@ -6,6 +6,7 @@ import { SpeciesClassificationSection } from "../SpeciesClassificationSection";
 import { SpeciesEcologySection } from "../SpeciesEcologySection";
 import { SpeciesNamesSection } from "../SpeciesNamesSection";
 import { SpeciesSourceSection } from "../SpeciesSourceSection";
+import { SketchfabModels } from "../SketchfabModels";
 import { useSpeciesDetails } from "../../hooks/useSpeciesDetails";
 import { rankLabel } from "../../utils/species-detail-formatters";
 import type { SpeciesDetailContentProps } from "./types";
@@ -39,6 +40,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
     galleryKey,
     imageCredit,
     enrichmentQuery,
+    retryEnrichment,
     hasMediaSidebar,
     onImageError,
   } = useSpeciesDetails(species);
@@ -118,6 +120,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
             <SpeciesMediaSidebar
               enrichment={enrichmentQuery.data?.data}
               isLoading={enrichmentQuery.isLoading}
+              onRetry={retryEnrichment}
             />
           </SidebarColumn>
         )}
@@ -130,6 +133,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
             hasError={enrichmentQuery.isError}
             onRetry={() => void enrichmentQuery.refetch()}
           />
+          <SketchfabModels species={species} />
           <SpeciesNamesSection species={species} />
           <SpeciesSourceSection dataset={dataset} />
         </MainColumn>

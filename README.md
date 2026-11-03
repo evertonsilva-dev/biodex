@@ -6,7 +6,8 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 
 - **Web:** React, TypeScript, Vite, styled-components e TanStack Query.
 - **API:** Node.js e TypeScript, Express 5, PostgreSQL (`pg`), validação de ambiente, middleware de segurança HTTP e logs estruturados; pode ser executada em Node.js ou Cloudflare Workers.
-- **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa apenas a API e nunca recebe credenciais do banco.
+- **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa a API e fontes públicas de mídia, sem receber credenciais do banco.
+- **Modelos 3D:** a ficha da espécie busca modelos públicos pela API do Sketchfab e incorpora o viewer oficial. Resultados que mencionam o nome científico são priorizados; se não houver correspondência, tenta-se o nome comum. A identificação não é garantida; cada modelo mantém a atribuição e a licença exibidas pelo Sketchfab.
 
 ## Estrutura
 
@@ -59,13 +60,13 @@ apps/
    npm run dev:api
    ```
 
-4. Em outro terminal, inicie o frontend:
+4. Em outro terminal, inicie o frontend com atualização automática ao salvar:
 
    ```sh
    npm run dev
    ```
 
-   O frontend usa `VITE_API_URL` (padrão `http://localhost:1337/api`). Para alterar, crie `apps/web/.env.local` com essa variável. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
+   Esse comando inicia o Vite com HMR e conecta à API local em `http://localhost:1337/api` (ou à URL definida por `VITE_API_URL` em `apps/web/.env.local`). Para testar o Worker localmente com Wrangler, use `npm run dev:cloudflare`; esse fluxo constrói os arquivos antes de iniciar o Worker e não oferece HMR. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
 
 Para compilar a API, execute `npm run build:api`. Para compilar e validar as rotas e middlewares sem conectar ao banco, execute `npm test --workspace @biodex/api`. Em desenvolvimento, `tsx watch` executa os arquivos TypeScript diretamente; em produção, `npm run start:api` executa a saída compilada em `apps/api/dist`.
 
@@ -178,4 +179,4 @@ Endpoints:
 - `GET /api/catalog/species/:id/enrichment` retorna descrições atribuídas às respectivas fontes e armazenadas em cache, informações de conservação e ocorrências, registros fósseis e, quando disponíveis, áudios licenciados de animais.
 - `GET /api/catalog/kingdoms`
 - `GET /api/catalog/facets?field=phylum&kingdom=animalia` retorna opções taxonômicas limitadas ao táxon superior selecionado. Os campos aceitos são `kingdom`, `phylum`, `class`, `order`, `family` e `genus`.
-- `GET /api/catalog/image?scientificName=Panthera%20leo` consulta iNaturalist, ocorrências do GBIF e Wikimedia Commons, nessa ordem. Para uma correspondência exata, o nome científico deve constar nos metadados da imagem, que também precisa ter uma licença Creative Commons ou de domínio público reconhecida. Se nenhuma imagem da espécie for encontrada, o sistema procura imagens representativas nos táxons ancestrais imediatos e superiores (gênero, família, ordem, classe, filo e reino), usando fotos de táxons do iNaturalist e o Wikimedia Commons em cada nível. Para vírus, a busca usa termos relacionados a vírions, ilustrações e micrografias. Os resultados incluem o nível taxonômico e o nome do táxon representado, e nunca são apresentados como imagens específicas da espécie. Acrescente `&gallery=true` para solicitar até oito fotos licenciadas para a galeria da ficha; os resultados da galeria são armazenados em cache no PostgreSQL junto com a imagem principal. Resultados positivos ficam em cache por 180 dias e buscas sem resultado, por 14 dias, em `col_species_image_cache`. Buscas sem resultado feitas pelo mecanismo de fallback anterior são repetidas; falhas dos provedores não são armazenadas em cache.
+- `GET /api/catalog/image?scientificName=Panthera%20leo` consulta iNaturalist, ocorrências do GBIF e Wikimedia Commons, nessa ordem. Para uma correspondência exata no Commons, o nome científico precisa aparecer no título ou nos metadados descritivos da imagem (categorias, por si só, não bastam); resultados com indícios de ilustração, fóssil ou outro conteúdo não fotográfico são descartados, e os metadados com correspondência mais forte são priorizados. A imagem de táxons superiores é sempre o último recurso: só é procurada se nenhuma imagem específica da espécie for encontrada. Nesse caso, o sistema percorre os ancestrais imediatos e superiores (gênero, família, ordem, classe, filo e reino), usando fotos de táxons do iNaturalist e o Wikimedia Commons em cada nível. Para vírus, a busca usa termos relacionados a vírions, ilustrações e micrografias. Os resultados incluem o nível taxonômico e o nome do táxon representado, e nunca são apresentados como imagens específicas da espécie. Acrescente `&gallery=true` para solicitar até oito fotos licenciadas para a galeria da ficha; os resultados da galeria são armazenados em cache no PostgreSQL junto com a imagem principal. Resultados positivos ficam em cache por 180 dias e buscas sem resultado, por 14 dias, em `col_species_image_cache`. Buscas sem resultado feitas pelo mecanismo de fallback anterior são repetidas; falhas dos provedores não são armazenadas em cache.

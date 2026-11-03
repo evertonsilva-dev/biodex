@@ -10,9 +10,9 @@
     "apps/api"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @biodex/web",
-    "dev:web": "npm run dev --workspace @biodex/web",
-    "dev:cloudflare": "npm run dev:cloudflare --workspace @biodex/web",
+    "dev": "set \"PATH=%LOCALAPPDATA%\\neon-tooling\\node-v22.19.0-win-x64;%PATH%\" && npm run dev --workspace @biodex/web",
+    "dev:web": "npm run dev",
+    "dev:cloudflare": "set \"PATH=%LOCALAPPDATA%\\neon-tooling\\node-v22.19.0-win-x64;%PATH%\" && npm run build --workspace @biodex/web -- --mode cloudflare && npm run dev:worker --workspace @biodex/web",
     "dev:api": "npm run dev --workspace @biodex/api",
     "start:api": "npm run start --workspace @biodex/api",
     "migrate:catalog-cache": "npm run migrate:catalog-cache --workspace @biodex/api",

@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
 export const Page = styled.main<{ $kingdomColor: string }>`
   --kingdom-color: ${({ $kingdomColor }) => $kingdomColor};
@@ -30,7 +30,8 @@ export const BackLink = styled.a`
 
 export const Hero = styled.section<{ $hasImage: boolean }>`
   display: grid;
-  grid-template-columns: ${({ $hasImage }) => ($hasImage ? "minmax(260px, 0.9fr) 1.1fr" : "1fr")};
+  grid-template-columns: ${({ $hasImage }) =>
+    $hasImage ? "minmax(260px, 0.9fr) 1.1fr" : "1fr"};
   overflow: hidden;
   border: 1px solid var(--kingdom-edge);
   border-radius: 20px;
@@ -286,7 +287,8 @@ export const LineageItem = styled.li<{ $isCurrent: boolean }>`
   min-height: 3rem;
   padding: 0.55rem 0.75rem 0.55rem 1.1rem;
   border-radius: 9px;
-  background: ${({ $isCurrent }) => ($isCurrent ? "var(--kingdom-tint)" : "transparent")};
+  background: ${({ $isCurrent }) =>
+    $isCurrent ? "var(--kingdom-tint)" : "transparent"};
 
   &::before {
     position: absolute;
@@ -295,9 +297,11 @@ export const LineageItem = styled.li<{ $isCurrent: boolean }>`
     width: 0.55rem;
     height: 0.55rem;
     border: 2px solid
-      ${({ $isCurrent, theme }) => ($isCurrent ? "var(--kingdom-color)" : theme.colors.line)};
+      ${({ $isCurrent, theme }) =>
+        $isCurrent ? "var(--kingdom-color)" : theme.colors.line};
     border-radius: 50%;
-    background: ${({ $isCurrent, theme }) => ($isCurrent ? "var(--kingdom-color)" : theme.colors.paper)};
+    background: ${({ $isCurrent, theme }) =>
+      $isCurrent ? "var(--kingdom-color)" : theme.colors.paper};
     content: "";
     transform: translateY(-50%);
   }
@@ -313,7 +317,8 @@ export const LineageItem = styled.li<{ $isCurrent: boolean }>`
   }
 
   small {
-    color: ${({ $isCurrent, theme }) => ($isCurrent ? "var(--kingdom-color)" : theme.colors.muted)};
+    color: ${({ $isCurrent, theme }) =>
+      $isCurrent ? "var(--kingdom-color)" : theme.colors.muted};
     font-size: 0.68rem;
     font-weight: 750;
     letter-spacing: 0.04em;
@@ -382,6 +387,7 @@ export const Empty = styled.p`
   color: ${({ theme }) => theme.colors.muted};
   font-size: 0.88rem;
   line-height: 1.5;
+  margin-bottom: 0.75rem;
 `;
 
 export const EnrichmentGroup = styled.div`
@@ -404,6 +410,7 @@ export const EnrichmentText = styled.p`
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.65;
+  margin-bottom: 0.5rem;
 `;
 
 export const SoundList = styled.div`
@@ -413,12 +420,12 @@ export const SoundList = styled.div`
 
 export const SoundItem = styled.div`
   display: grid;
-    gap: 0.75rem;
-    min-width: 0;
-    padding: 0.9rem;
-    border: 1px solid ${({ theme }) => theme.colors.line};
-    border-radius: 12px;
-    background: var(--kingdom-tint);
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: 12px;
+  background: var(--kingdom-tint);
 `;
 
 export const WavePlayerLayout = styled.div`

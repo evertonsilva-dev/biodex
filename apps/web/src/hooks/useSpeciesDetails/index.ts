@@ -10,6 +10,13 @@ import type { SpeciesDetailPhoto } from './types';
 export function useSpeciesDetails(species: SpeciesDetail) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
+  const [enrichmentRefresh, setEnrichmentRefresh] = useState({
+    speciesId: species.documentId,
+    revision: 0,
+  });
+  const enrichmentRefreshRevision = enrichmentRefresh.speciesId === species.documentId
+    ? enrichmentRefresh.revision
+    : 0;
   const imageQuery = useQuery({
     queryKey: ['species-image', species.scientificName, 'detail-gallery-v1'],
     queryFn: ({ signal }) => getSpeciesImage(species.scientificName, signal, true),
@@ -20,8 +27,12 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     retry: false,
   });
   const enrichmentQuery = useQuery({
-    queryKey: ['species-enrichment', species.documentId],
-    queryFn: ({ signal }) => getSpeciesEnrichment(species.documentId, signal),
+    queryKey: ['species-enrichment', species.documentId, enrichmentRefreshRevision],
+    queryFn: ({ signal }) => getSpeciesEnrichment(
+      species.documentId,
+      signal,
+      enrichmentRefreshRevision > 0,
+    ),
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
@@ -93,10 +104,22 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   };
 
   const gbifEnrichment = enrichmentQuery.data?.data.gbif;
+  const hasGbifErrors = enrichmentQuery.data?.data.errors.includes('GBIF') ?? false;
   const hasMediaSidebar = enrichmentQuery.isLoading
+    || hasGbifErrors
     || (gbifEnrichment !== null
       && gbifEnrichment !== undefined
-      && ((gbifEnrichment.occurrenceCount ?? 0) > 0 || gbifEnrichment.sounds.length > 0));
+      && (gbifEnrichment.sourceErrors.length > 0
+        || (gbifEnrichment.occurrenceCount ?? 0) > 0
+        || gbifEnrichment.sounds.length > 0));
+  const retryEnrichment = () => {
+    setEnrichmentRefresh((current) => ({
+      speciesId: species.documentId,
+      revision: current.speciesId === species.documentId
+        ? current.revision + 1
+        : 1,
+    }));
+  };
 
   return {
     selectedImageIndex,
@@ -107,6 +130,7 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     galleryKey,
     imageCredit,
     enrichmentQuery,
+    retryEnrichment,
     hasMediaSidebar,
     onImageError,
   };

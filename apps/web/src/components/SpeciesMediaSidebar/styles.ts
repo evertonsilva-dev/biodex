@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { MapFrame } from '../SpeciesOccurrenceMap/styles';
 
-export { Empty, EnrichmentText, Section, SectionTitle, SoundItem, SoundList, SourceLink } from '../SpeciesDetailPage/styles';
+export { Empty, EnrichmentText, RetryButton, Section, SectionTitle, SoundItem, SoundList, SourceLink } from '../SpeciesDetailPage/styles';
 
 export const SkeletonMap = styled(MapFrame)`
   border-color: transparent;

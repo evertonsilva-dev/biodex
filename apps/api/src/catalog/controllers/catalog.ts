@@ -254,6 +254,10 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
     if (typeof externalId !== 'string' || !externalId.trim() || externalId.length > 200) {
       ctx.throw(400, 'A valid species identifier is required.');
     }
+    const refresh = ctx.query.refresh;
+    if (refresh !== undefined && refresh !== 'true' && refresh !== 'false') {
+      ctx.throw(400, 'refresh must be true or false.');
+    }
 
     const result = await runtime.db.query<{
       external_id: string;
@@ -278,7 +282,9 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
     }
 
     try {
-      ctx.body = { data: await loadSpeciesEnrichment(runtime, species) };
+      ctx.body = {
+        data: await loadSpeciesEnrichment(runtime, species, refresh === 'true'),
+      };
     } catch (error) {
       if (error instanceof SupplementalDataUnavailableError) {
         runtime.log.warn(`Supplemental data sources are unavailable for "${species.scientific_name}": ${error.message}`);

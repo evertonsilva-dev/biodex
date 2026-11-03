@@ -3,11 +3,12 @@ import { SpeciesOccurrenceMap } from '../SpeciesOccurrenceMap';
 import { SoundAudioPlayer } from '../SoundAudioPlayer';
 import { Skeleton } from '../Skeleton';
 import type { SpeciesMediaSidebarProps } from './types';
-import { EnrichmentText, Section, SectionTitle, SkeletonMap, SkeletonMapCaption, SoundItem, SoundList, SourceLink } from './styles';
+import { Empty, EnrichmentText, RetryButton, Section, SectionTitle, SkeletonMap, SkeletonMapCaption, SoundItem, SoundList, SourceLink } from './styles';
 
 export function SpeciesMediaSidebar({
   enrichment,
   isLoading,
+  onRetry,
 }: SpeciesMediaSidebarProps) {
   const { registerAudioPlayer, handleAudioPlaybackStart } = useSpeciesMediaSidebar();
 
@@ -15,7 +16,10 @@ export function SpeciesMediaSidebar({
   const hasGbif = gbif !== null && gbif !== undefined;
   const hasMap = hasGbif && (gbif.occurrenceCount ?? 0) > 0;
   const hasSounds = hasGbif && gbif.sounds.length > 0;
-  if (!hasMap && !hasSounds && !isLoading) {
+  const hasGbifErrors = Boolean(
+    enrichment?.errors.includes('GBIF') || gbif?.sourceErrors.length,
+  );
+  if (!hasMap && !hasSounds && !hasGbifErrors && !isLoading) {
     return null;
   }
 
@@ -45,6 +49,18 @@ export function SpeciesMediaSidebar({
           </SkeletonMapCaption>
         </Section>
       ) : null}
+      {hasGbifErrors && !isLoading && (
+        <Section>
+          <SectionTitle>Mapa e vocalizações indisponíveis</SectionTitle>
+          <Empty role="status">
+            O GBIF não respondeu à consulta. Tente novamente para buscar os
+            registros mais recentes.
+          </Empty>
+          <RetryButton type="button" onClick={onRetry}>
+            Tentar novamente
+          </RetryButton>
+        </Section>
+      )}
       {hasSounds && gbif && (
         <Section>
           <SectionTitle>Vocalizações e sons</SectionTitle>

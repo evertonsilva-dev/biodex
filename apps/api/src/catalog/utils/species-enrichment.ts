@@ -449,13 +449,14 @@ function parsePayload(value: unknown): EnrichmentPayload {
 async function loadSpeciesEnrichment(
   runtime: CatalogRuntime,
   species: EnrichmentSpecies,
+  forceRefresh = false,
 ): Promise<EnrichmentPayload> {
   const cacheResult = await runtime.db.query(`
     SELECT payload, expires_at > now() AS is_fresh
     FROM col_species_enrichment_cache
     WHERE external_id = $1
   `, [species.external_id]);
-  if (cacheResult.rows[0]?.is_fresh) {
+  if (!forceRefresh && cacheResult.rows[0]?.is_fresh) {
     return parsePayload(cacheResult.rows[0].payload);
   }
 

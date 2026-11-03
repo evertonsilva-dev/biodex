@@ -8,7 +8,7 @@
     "start": "node dist/src/server.js",
     "clean": "node --input-type=module -e \"import { rm } from 'node:fs/promises'; await rm('dist', { recursive: true, force: true });\"",
     "build": "npm run clean && tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/src/app.test.js dist/src/catalog/catalog.test.js",
+    "test": "npm run build && node --test dist/src/app.test.js dist/src/catalog/catalog.test.js dist/src/catalog/services/images.test.js",
     "migrate:catalog-cache": "npm run build && node dist/scripts/migrate-catalog-cache.js",
     "import:col": "npm run build && node dist/scripts/import-col.js",
     "import:pbdb": "npm run build && node dist/scripts/import-pbdb.js",
