@@ -1,6 +1,5 @@
 import type { SpeciesSupplementalDataProps } from './types';
-import { Skeleton } from '../Skeleton';
-import { Empty, EnrichmentGroup, EnrichmentText, EnrichmentTitle, Fact, FactGrid, RetryButton, Section, SectionTitle, SourceLink } from './styles';
+import { EnrichmentGroup, EnrichmentText, EnrichmentTitle, Fact, FactGrid, Section, SectionTitle, SourceLink } from './styles';
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
@@ -30,49 +29,38 @@ function conservationStatusLabel(
 
 export function SpeciesSupplementalData({
   enrichment,
-  isLoading,
-  hasError,
-  onRetry,
 }: SpeciesSupplementalDataProps) {
-  if (!isLoading && !hasError && !enrichment) {
-    return null;
-  }
-
   const inaturalist = enrichment?.inaturalist;
   const gbif = enrichment?.gbif;
   const pbdb = enrichment?.pbdb;
+  const hasInaturalistData = Boolean(
+    inaturalist
+      && (inaturalist.commonName
+        || inaturalist.summary
+        || inaturalist.conservation
+        || (inaturalist.observations !== null && inaturalist.observations !== undefined)),
+  );
+  const hasGbifData = Boolean(
+    gbif && ((gbif.occurrenceCount ?? 0) > 0 || gbif.countries.length > 0),
+  );
+  const hasPbdbData = Boolean(
+    pbdb && (pbdb.occurrenceSampleCount > 0
+      || pbdb.intervals.length > 0
+      || pbdb.oldestAgeMa !== null
+      || pbdb.youngestAgeMa !== null
+      || pbdb.localities.length > 0
+      || pbdb.references.length > 0),
+  );
+  const hasViralzoneData = Boolean(enrichment?.viralzoneUrl);
+
+  if (!hasInaturalistData && !hasGbifData && !hasPbdbData && !hasViralzoneData) {
+    return null;
+  }
 
   return (
     <Section>
       <SectionTitle>Mais informações e registros externos</SectionTitle>
-      {isLoading && (
-        <EnrichmentGroup role="status" aria-label="Carregando informações complementares">
-          <Skeleton $width="68%" $height="0.9rem" />
-          <Skeleton $width="100%" $height="0.9rem" />
-          <Skeleton $width="84%" $height="0.9rem" />
-        </EnrichmentGroup>
-      )}
-      {hasError && (
-        <EnrichmentGroup>
-          <Empty>
-            Não foi possível consultar as fontes externas agora. Os dados já
-            carregados continuam disponíveis.
-          </Empty>
-          <RetryButton type="button" onClick={onRetry}>
-            Tentar novamente
-          </RetryButton>
-        </EnrichmentGroup>
-      )}
-      {enrichment?.errors.length ? (
-        <EnrichmentGroup>
-          <Empty>
-            Algumas fontes estão temporariamente indisponíveis:{" "}
-            {enrichment.errors.join(", ")}.
-          </Empty>
-        </EnrichmentGroup>
-      ) : null}
-
-      {inaturalist && (
+      {hasInaturalistData && inaturalist && (
         <EnrichmentGroup>
           <EnrichmentTitle>Resumo e observações</EnrichmentTitle>
           {inaturalist.commonName && (
@@ -144,7 +132,7 @@ export function SpeciesSupplementalData({
         </EnrichmentGroup>
       )}
 
-      {gbif && (
+      {hasGbifData && gbif && (
         <EnrichmentGroup>
           <EnrichmentTitle>Registros de biodiversidade no GBIF</EnrichmentTitle>
           {gbif.occurrenceCount !== null && (
@@ -167,7 +155,7 @@ export function SpeciesSupplementalData({
         </EnrichmentGroup>
       )}
 
-      {pbdb && (
+      {hasPbdbData && pbdb && (
         <EnrichmentGroup>
           <EnrichmentTitle>Registro fóssil na PBDB</EnrichmentTitle>
           {pbdb.intervals.length > 0 && (
@@ -225,13 +213,6 @@ export function SpeciesSupplementalData({
         </EnrichmentGroup>
       )}
 
-      {!isLoading && !hasError && enrichment &&
-        !inaturalist && !gbif && !pbdb && !enrichment.viralzoneUrl && (
-          <Empty>
-            As fontes consultadas não têm informações adicionais para esta
-            espécie.
-          </Empty>
-        )}
     </Section>
   );
 }

@@ -36,7 +36,7 @@ export function ErrorPage({ type }: ErrorPageProps) {
           {errorType !== 'not-found' && (
             <ActionLink $primary href={returnTo}>Tentar novamente</ActionLink>
           )}
-          <ActionLink href="/">Voltar ao catálogo</ActionLink>
+          <ActionLink href="/catalog">Voltar ao catálogo</ActionLink>
         </Actions>
       </Panel>
     </Page>

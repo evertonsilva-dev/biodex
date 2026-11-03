@@ -1,12 +1,5 @@
 import styled from 'styled-components';
 
-export const ModelNote = styled.p`
-  margin: -0.35rem 0 1rem;
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: 0.82rem;
-  line-height: 1.55;
-`;
-
 export const ModelChoices = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));

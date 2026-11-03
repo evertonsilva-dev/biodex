@@ -1,9 +1,11 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
 export const Page = styled.main`
   width: min(1200px, calc(100% - 3rem));
   margin: 0 auto;
   padding: 2rem 0 5rem;
+  color: #23332a;
+  background: #f3efe4;
 
   @media (max-width: 600px) {
     width: min(100% - 2rem, 1200px);
@@ -36,13 +38,14 @@ export const Eyebrow = styled.p`
 export const Headline = styled.h1`
   max-width: 700px;
   margin: 0;
-  font-family: ${({ theme }) => theme.fonts.display};
+  font-family: ${({ theme }) => theme.fonts.highlightTitle};
   font-size: clamp(3rem, 7vw, 6.25rem);
   letter-spacing: -0.075em;
   line-height: 0.94;
-
+  font-weight: 400;
   span {
     color: ${({ theme }) => theme.colors.green};
+    font-style: italic;
   }
 `;
 
@@ -73,15 +76,17 @@ export const Search = styled.input`
   min-width: 0;
   width: 100%;
   padding: 0.75rem 0.85rem;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: 9px;
-  background: ${({ theme }) => theme.colors.paper};
+  border: none;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  /* border-radius: 9px; */
+  background: transparent;
   color: ${({ theme }) => theme.colors.ink};
   font: inherit;
-
+  transition: border-color 0.2s ease-in-out;
   &:focus {
     border-color: ${({ theme }) => theme.colors.green};
-    outline: 2px solid ${({ theme }) => `${theme.colors.green}30`};
+    border-width: 2px;
+    outline: none;
   }
 `;
 

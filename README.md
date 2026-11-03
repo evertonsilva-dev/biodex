@@ -9,6 +9,10 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 - **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa a API e fontes públicas de mídia, sem receber credenciais do banco.
 - **Modelos 3D:** a ficha da espécie busca modelos públicos pela API do Sketchfab e incorpora o viewer oficial. Resultados que mencionam o nome científico são priorizados; se não houver correspondência, tenta-se o nome comum. A identificação não é garantida; cada modelo mantém a atribuição e a licença exibidas pelo Sketchfab.
 
+## Navegação
+
+A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo.
+
 ## Estrutura
 
 ```text

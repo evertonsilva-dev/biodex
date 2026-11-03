@@ -1,27 +1,30 @@
+import { useState } from "react";
 import {
   MapContainer,
   TileLayer,
   ZoomControl,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapFrame, MapNotice } from './styles';
+import { MapFrame } from './styles';
 import type { SpeciesOccurrenceMapProps } from './types';
 
-export function SpeciesOccurrenceMap({ taxonKey, occurrenceCount }: SpeciesOccurrenceMapProps) {
+export function SpeciesOccurrenceMap({
+  taxonKey,
+  occurrenceCount,
+  onUnavailable,
+}: SpeciesOccurrenceMapProps) {
+  const [tileError, setTileError] = useState(false);
+
+  if (tileError) {
+    return null;
+  }
+
   if (occurrenceCount === null) {
-    return (
-      <MapNotice>
-        Não foi possível obter a contagem de ocorrências para exibir o mapa.
-      </MapNotice>
-    );
+    return null;
   }
 
   if (occurrenceCount === 0) {
-    return (
-      <MapNotice>
-        O GBIF não encontrou registros de ocorrência para esta espécie.
-      </MapNotice>
-    );
+    return null;
   }
 
   return (
@@ -48,6 +51,12 @@ export function SpeciesOccurrenceMap({ taxonKey, occurrenceCount }: SpeciesOccur
           opacity={0.9}
           maxNativeZoom={12}
           maxZoom={12}
+          eventHandlers={{
+            tileerror: () => {
+              setTileError(true);
+              onUnavailable();
+            },
+          }}
         />
         <ZoomControl position="bottomright" />
       </MapContainer>

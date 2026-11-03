@@ -14,16 +14,18 @@ export function useAppRoute(): AppRoute {
     }
   }
   const isErrorPage = pathname === '/error';
-  const isCatalog = pathname === '/' || pathname === '';
+  const isLanding = pathname === '/' || pathname === '';
+  const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
 
   useEffect(() => {
-    if (!isErrorPage && !isCatalog && externalId === null) {
+    if (!isErrorPage && !isLanding && !isCatalog && externalId === null) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isCatalog, externalId]);
+  }, [isErrorPage, isLanding, isCatalog, externalId]);
 
   if (isErrorPage) return { page: 'error' };
   if (externalId !== null) return { page: 'species', externalId };
+  if (isLanding) return { page: 'landing' };
   if (isCatalog) return { page: 'catalog' };
   return { page: 'not-found' };
 }
