@@ -41,6 +41,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
     imageCredit,
     enrichmentQuery,
     hasMediaSidebar,
+    refreshEnrichment,
     onImageError,
   } = useSpeciesDetails(species);
   const dataset = species.dataset;
@@ -115,7 +116,12 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
 
       <Content $hasSidebar={hasMediaSidebar}>
         <SidebarColumn aria-label="Mapa e áudio da espécie">
-          <SpeciesMediaSidebar enrichment={enrichmentQuery.data?.data} />
+          <SpeciesMediaSidebar
+            enrichment={enrichmentQuery.data?.data}
+            hasError={enrichmentQuery.isError}
+            isFetching={enrichmentQuery.isFetching}
+            onRefresh={() => { void refreshEnrichment(); }}
+          />
         </SidebarColumn>
         <MainColumn $hasSidebar={hasMediaSidebar}>
           <SpeciesClassificationSection species={species} />

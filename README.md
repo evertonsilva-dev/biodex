@@ -89,6 +89,8 @@ O deploy usa um único Cloudflare Worker para servir o frontend React/Vite como 
 
 4. O endpoint `/health` valida a conexão e as tabelas necessárias do catálogo. Se retornar `503`, aplique antes o schema de cache e importe os dados do catálogo.
 
+Para criar um Preview pelo Cloudflare Workers Builds, mantenha o build como `npm run build --workspace @biodex/web -- --mode cloudflare` e use `npm run preview:cloudflare` como comando de deploy. Esse comando aponta explicitamente para `apps/web/wrangler.jsonc`, que contém o bloco `previews` exigido pelo Wrangler; não use `npx wrangler preview` sem indicar essa configuração. O bloco de Preview está vazio e não compartilha o Hyperdrive de produção; para habilitar a API no Preview, associe um Hyperdrive de staging pela configuração de Preview do Cloudflare.
+
 Para desenvolver localmente com o Worker e Hyperdrive, defina `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` no ambiente com uma conexão PostgreSQL direta e execute `npm run dev:cloudflare`. Essa variável é local e não deve ser compartilhada ou versionada. Use um banco local ou um branch de desenvolvimento, pois o modo local conecta diretamente ao banco; o pool otimizado do Hyperdrive só é usado no Worker publicado.
 
 No plano gratuito da Cloudflare, Workers têm limite de 100 mil requisições por dia e 10 ms de CPU por invocação; Hyperdrive permite até 100 mil consultas ao banco por dia. As requisições de arquivos estáticos não contam como requisições do Worker. Confira os [limites do Workers](https://developers.cloudflare.com/workers/platform/pricing/) e do [Hyperdrive](https://developers.cloudflare.com/hyperdrive/platform/pricing/) antes de um lançamento com tráfego significativo.

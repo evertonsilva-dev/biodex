@@ -18,6 +18,7 @@
     "migrate:catalog-cache": "npm run migrate:catalog-cache --workspace @biodex/api",
     "build": "npm run build --workspace @biodex/web",
     "build:api": "npm run build --workspace @biodex/api",
+    "preview:cloudflare": "npm run preview:cloudflare --workspace @biodex/web",
     "deploy:cloudflare": "npm run build --workspace @biodex/web -- --mode cloudflare && npm run deploy --workspace @biodex/web"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { GalleryItem } from 'react-image-gallery';
 import { apiOrigin } from '../../api/client';
@@ -10,6 +10,7 @@ import type { SpeciesDetailPhoto } from './types';
 export function useSpeciesDetails(species: SpeciesDetail) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
+  const forceEnrichmentRefresh = useRef(false);
   const imageQuery = useQuery({
     queryKey: ['species-image', species.scientificName, 'detail-gallery-v1'],
     queryFn: ({ signal }) => getSpeciesImage(species.scientificName, signal, true),
@@ -21,8 +22,12 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   });
   const enrichmentQuery = useQuery({
     queryKey: ['species-enrichment', species.documentId],
-    queryFn: ({ signal }) => getSpeciesEnrichment(species.documentId, signal),
-    staleTime: 24 * 60 * 60 * 1000,
+    queryFn: ({ signal }) => getSpeciesEnrichment(
+      species.documentId,
+      signal,
+      forceEnrichmentRefresh.current,
+    ),
+    staleTime: 60 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
   });
@@ -93,10 +98,21 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   };
 
   const gbifEnrichment = enrichmentQuery.data?.data.gbif;
+  const hasEnrichmentWarning = enrichmentQuery.isError
+    || Boolean(enrichmentQuery.data?.data.errors.length);
   const hasMediaSidebar = Boolean(
-    gbifEnrichment
-      && ((gbifEnrichment.occurrenceCount ?? 0) > 0 || gbifEnrichment.sounds.length > 0),
+    hasEnrichmentWarning
+      || (gbifEnrichment
+        && ((gbifEnrichment.occurrenceCount ?? 0) > 0 || gbifEnrichment.sounds.length > 0)),
   );
+  const refreshEnrichment = async () => {
+    forceEnrichmentRefresh.current = true;
+    try {
+      await enrichmentQuery.refetch();
+    } finally {
+      forceEnrichmentRefresh.current = false;
+    }
+  };
 
   return {
     selectedImageIndex,
@@ -108,6 +124,7 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     imageCredit,
     enrichmentQuery,
     hasMediaSidebar,
+    refreshEnrichment,
     onImageError,
   };
 }

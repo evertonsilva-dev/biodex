@@ -1,26 +1,41 @@
-import { useState } from 'react';
 import { useSpeciesMediaSidebar } from '../../hooks/useSpeciesMediaSidebar';
 import { SpeciesOccurrenceMap } from '../SpeciesOccurrenceMap';
 import { SoundAudioPlayer } from '../SoundAudioPlayer';
 import type { SpeciesMediaSidebarProps } from './types';
-import { EnrichmentText, Section, SectionTitle, SoundItem, SoundList, SourceLink } from './styles';
+import { EnrichmentText, RetryButton, Section, SectionTitle, SoundItem, SoundList, SourceLink } from './styles';
 
 export function SpeciesMediaSidebar({
   enrichment,
+  hasError,
+  isFetching,
+  onRefresh,
 }: SpeciesMediaSidebarProps) {
   const { registerAudioPlayer, handleAudioPlaybackStart } = useSpeciesMediaSidebar();
-  const [mapUnavailable, setMapUnavailable] = useState(false);
 
   const gbif = enrichment?.gbif;
   const hasGbif = gbif !== null && gbif !== undefined;
-  const hasMap = hasGbif && (gbif.occurrenceCount ?? 0) > 0 && !mapUnavailable;
+  const hasMap = hasGbif && (gbif.occurrenceCount ?? 0) > 0;
   const hasSounds = hasGbif && gbif.sounds.length > 0;
-  if (!hasMap && !hasSounds) {
+  const hasRefreshWarning = hasError || Boolean(enrichment?.errors.length);
+  if (!hasMap && !hasSounds && !hasRefreshWarning) {
     return null;
   }
 
   return (
     <>
+      {hasRefreshWarning && (
+        <Section aria-live="polite">
+          <SectionTitle>Dados complementares incompletos</SectionTitle>
+          <EnrichmentText>
+            {hasError
+              ? 'Não foi possível carregar os dados complementares.'
+              : 'Algumas fontes externas não responderam; os dados podem estar incompletos.'}
+          </EnrichmentText>
+          <RetryButton type="button" onClick={onRefresh} disabled={isFetching}>
+            {isFetching ? 'Atualizando…' : 'Tentar novamente'}
+          </RetryButton>
+        </Section>
+      )}
       {hasMap && gbif ? (
         <Section>
           <SectionTitle>Mapa de registros conhecidos</SectionTitle>
@@ -31,7 +46,6 @@ export function SpeciesMediaSidebar({
           <SpeciesOccurrenceMap
             taxonKey={gbif.taxonKey}
             occurrenceCount={gbif.occurrenceCount}
-            onUnavailable={() => setMapUnavailable(true)}
           />
         </Section>
       ) : null}

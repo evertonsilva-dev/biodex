@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -11,14 +10,7 @@ import type { SpeciesOccurrenceMapProps } from './types';
 export function SpeciesOccurrenceMap({
   taxonKey,
   occurrenceCount,
-  onUnavailable,
 }: SpeciesOccurrenceMapProps) {
-  const [tileError, setTileError] = useState(false);
-
-  if (tileError) {
-    return null;
-  }
-
   if (occurrenceCount === null) {
     return null;
   }
@@ -51,12 +43,6 @@ export function SpeciesOccurrenceMap({
           opacity={0.9}
           maxNativeZoom={12}
           maxZoom={12}
-          eventHandlers={{
-            tileerror: () => {
-              setTileError(true);
-              onUnavailable();
-            },
-          }}
         />
         <ZoomControl position="bottomright" />
       </MapContainer>
