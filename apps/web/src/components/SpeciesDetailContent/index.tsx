@@ -129,11 +129,16 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           <SpeciesSupplementalData enrichment={enrichmentQuery.data?.data} />
           <SketchfabModels species={species} />
           <SpeciesNamesSection species={species} />
-          <SpeciesSourceSection dataset={dataset} />
+          <SpeciesSourceSection
+            dataset={dataset}
+            dataSource={species.dataSource}
+            sourceId={species.sourceId}
+            sourceReference={species.sourceReference}
+          />
         </MainColumn>
       </Content>
       <Footer>
-        BIODEX · Dados taxonômicos fornecidos pelo Catalogue of Life.
+        BIODEX · Consulte a procedência indicada em cada ficha.
       </Footer>
     </>
   );
