@@ -5,7 +5,7 @@ export interface CatalogFilters {
   order: string;
   family: string;
   genus: string;
-  habitat: string;
+  habitat: string[];
   source: string;
   extinct: string;
 }

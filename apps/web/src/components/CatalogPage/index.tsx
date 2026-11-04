@@ -4,7 +4,10 @@ import { useCatalogPage, optionsWithSelected, MIN_SEARCH_LENGTH } from '../../ho
 import type { TaxonomyFacetField } from '../../types/species';
 import { CatalogFilterPanel } from '../CatalogFilterPanel';
 import { CatalogResults } from '../CatalogResults';
+import type { CatalogActiveFilter } from '../CatalogResults/types';
 import { TopBar } from '../TopBar';
+import type { BiodexSelectOption } from '../BiodexSelect';
+import { getEnvironmentLabel, getEnvironmentOptions } from '../../utils/environment-label';
 import {
   Page,
   Hero,
@@ -24,8 +27,61 @@ export function CatalogPage() {
     orderOptionsQuery, familyOptionsQuery, genusOptionsQuery, habitatOptionsQuery,
     sourceOptionsQuery, facetQueries, speciesQuery,
     retryCatalog, isRetryingCatalog, updateTaxonomyFilter, updateExtinctionFilter,
-    updateAdditionalFilter, updateSearch, updatePage, updateSort, clearFilters,
+    updateHabitatFilter, updateSourceFilter, updateSearch, updatePage, updateSort,
+    clearFilters, clearCatalog,
   } = useCatalogPage();
+  const activeFilters: CatalogActiveFilter[] = [];
+  const addTaxonomyFilter = (
+    field: TaxonomyFacetField,
+    label: string,
+    options: BiodexSelectOption[],
+  ) => {
+    const value = filters[field];
+    if (value) {
+      const optionLabel = options.find((option) => option.value === value)?.label ?? value;
+      activeFilters.push({
+        id: field,
+        label: `${label}: ${optionLabel}`,
+        onRemove: () => updateTaxonomyFilter(field, ''),
+      });
+    }
+  };
+  if (search.trim()) {
+    activeFilters.push({
+      id: 'search',
+      label: `Busca: ${search.trim()}`,
+      onRemove: () => updateSearch(''),
+    });
+  }
+  addTaxonomyFilter('kingdom', 'Reino', kingdomOptionsQuery.data?.data ?? []);
+  addTaxonomyFilter('phylum', 'Filo', phylumOptionsQuery.data?.data ?? []);
+  addTaxonomyFilter('class', 'Classe', classOptionsQuery.data?.data ?? []);
+  addTaxonomyFilter('order', 'Ordem', orderOptionsQuery.data?.data ?? []);
+  addTaxonomyFilter('family', 'Família', familyOptionsQuery.data?.data ?? []);
+  addTaxonomyFilter('genus', 'Gênero', genusOptionsQuery.data?.data ?? []);
+  if (filters.extinct) {
+    activeFilters.push({
+      id: 'extinct',
+      label: `Extinção: ${filters.extinct === 'true' ? 'Extintas' : 'Viventes'}`,
+      onRemove: () => updateExtinctionFilter(''),
+    });
+  }
+  for (const habitat of filters.habitat) {
+    activeFilters.push({
+      id: `habitat-${habitat}`,
+      label: `Ambiente: ${getEnvironmentLabel(habitat)}`,
+      onRemove: () => updateHabitatFilter(filters.habitat.filter((value) => value !== habitat)),
+    });
+  }
+  if (filters.source) {
+    const label = sourceOptionsQuery.data?.data.find((option) => option.value === filters.source)?.label
+      ?? filters.source;
+    activeFilters.push({
+      id: 'source',
+      label: `Fonte: ${label}`,
+      onRemove: () => updateSourceFilter(''),
+    });
+  }
 
   return (
     <Page>
@@ -58,6 +114,9 @@ export function CatalogPage() {
         <CatalogLayout>
           <CatalogFilterPanel
             filters={filters}
+            selectedCount={Object.values(filters).reduce((count, value) => (
+              count + (Array.isArray(value) ? value.length : Number(Boolean(value)))
+            ), 0)}
             options={{
               kingdom: optionsWithSelected(kingdomOptionsQuery.data?.data ?? [], filters.kingdom),
               phylum: optionsWithSelected(phylumOptionsQuery.data?.data ?? [], filters.phylum),
@@ -65,25 +124,31 @@ export function CatalogPage() {
               order: optionsWithSelected(orderOptionsQuery.data?.data ?? [], filters.order),
               family: optionsWithSelected(familyOptionsQuery.data?.data ?? [], filters.family),
               genus: optionsWithSelected(genusOptionsQuery.data?.data ?? [], filters.genus),
-              habitat: optionsWithSelected(habitatOptionsQuery.data?.data ?? [], filters.habitat),
+              habitat: optionsWithSelected(
+                getEnvironmentOptions(habitatOptionsQuery.data?.data ?? []),
+                filters.habitat,
+              ).map((option) => ({ ...option, label: getEnvironmentLabel(option.value) })),
               source: optionsWithSelected(sourceOptionsQuery.data?.data ?? [], filters.source),
             }}
             hasError={facetQueries.some((query) => query.isError)}
             isRetrying={isRetryingCatalog}
             onTaxonomyChange={(field: TaxonomyFacetField, value) => updateTaxonomyFilter(field, value)}
             onExtinctionChange={updateExtinctionFilter}
-            onAdditionalFilterChange={updateAdditionalFilter}
+            onHabitatChange={updateHabitatFilter}
+            onSourceChange={updateSourceFilter}
             onClearFilters={clearFilters}
             onRetry={retryCatalog}
           />
           <CatalogResults
             data={speciesQuery.data}
+            activeFilters={activeFilters}
             isPending={speciesQuery.isPending}
             isError={speciesQuery.isError}
             isRetrying={isRetryingCatalog}
             page={page}
             sort={sort}
             onRetry={retryCatalog}
+            onClearAll={clearCatalog}
             onPageChange={updatePage}
             onSortChange={updateSort}
           />

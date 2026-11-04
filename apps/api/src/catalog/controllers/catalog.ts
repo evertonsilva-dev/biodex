@@ -27,7 +27,7 @@ interface CatalogFilters {
   order: string;
   family: string;
   genus: string;
-  habitat: string;
+  habitat: string[];
   source: string;
   extinct?: boolean;
 }
@@ -102,6 +102,49 @@ function parseOptionalString(
   return normalized;
 }
 
+function parseOptionalStringList(
+  query: CatalogQuery,
+  name: string,
+  maximum: number,
+  maximumItems: number,
+  ctx: CatalogRequestContext,
+): string[] {
+  const value = query[name];
+  if (value === undefined) {
+    return [];
+  }
+  const values = Array.isArray(value) ? value : [value];
+  const stringValues = values.filter((item): item is string => typeof item === 'string');
+  if (values.length > maximumItems || stringValues.length !== values.length) {
+    ctx.throw(400, `${name} must contain at most ${maximumItems} strings.`);
+  }
+
+  const normalized = stringValues
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (normalized.some((item) => item.length > maximum)) {
+    ctx.throw(400, `${name} values must be at most ${maximum} characters.`);
+  }
+  return [...new Set(normalized)];
+}
+
+function environmentSelectionCondition(column: string, binding: string): string {
+  return `EXISTS (
+    SELECT 1
+    FROM unnest(regexp_split_to_array(
+      COALESCE(${column}, ''),
+      '[[:space:]]*[,;/|&+][[:space:]]*|[[:space:]]+and[[:space:]]+|[[:space:]]+or[[:space:]]+'
+    )) AS environment_part(value)
+    WHERE CASE regexp_replace(lower(btrim(environment_part.value)), '[[:space:]]+', ' ', 'g')
+      WHEN 'ocean' THEN 'marine'
+      WHEN 'land' THEN 'terrestrial'
+      WHEN 'fresh water' THEN 'freshwater'
+      WHEN 'brackish water' THEN 'brackish'
+      ELSE regexp_replace(lower(btrim(environment_part.value)), '[[:space:]]+', ' ', 'g')
+    END = ANY(${binding}::text[])
+  )`;
+}
+
 function parseCatalogFilters(query: CatalogQuery, ctx: CatalogRequestContext): CatalogFilters {
   const filters: CatalogFilters = {
     kingdom: parseOptionalString(query, 'kingdom', 100, ctx),
@@ -110,7 +153,7 @@ function parseCatalogFilters(query: CatalogQuery, ctx: CatalogRequestContext): C
     order: parseOptionalString(query, 'order', MAX_FILTER_LENGTH, ctx),
     family: parseOptionalString(query, 'family', MAX_FILTER_LENGTH, ctx),
     genus: parseOptionalString(query, 'genus', MAX_FILTER_LENGTH, ctx),
-    habitat: parseOptionalString(query, 'habitat', MAX_FILTER_LENGTH, ctx),
+    habitat: parseOptionalStringList(query, 'habitat', MAX_FILTER_LENGTH, 20, ctx),
     source: parseOptionalString(query, 'source', MAX_FILTER_LENGTH, ctx),
     extinct: undefined,
   };
@@ -165,8 +208,8 @@ function createFilters(
       conditions.push(`${FACET_COLUMNS[level]} = ${bind(filters[level])}`);
     }
   }
-  if (filters.habitat) {
-    conditions.push(`t.environment = ${bind(filters.habitat)}`);
+  if (filters.habitat.length) {
+    conditions.push(environmentSelectionCondition('t.environment', bind(filters.habitat)));
   }
   if (filters.source) {
     conditions.push(`t.data_source = ${bind(filters.source)}`);
@@ -634,7 +677,9 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
         ...TAXONOMY_LEVELS
           .filter((level) => filters[level])
           .map((level) => `AND ${FACET_COLUMNS[level]} = ${bind(filters[level])}`),
-        ...(filters.habitat ? [`AND t.environment = ${bind(filters.habitat)}`] : []),
+        ...(filters.habitat.length
+          ? [`AND ${environmentSelectionCondition('t.environment', bind(filters.habitat))}`]
+          : []),
         ...(filters.source ? [`AND t.data_source = ${bind(filters.source)}`] : []),
       ];
       const result = await runtime.db.query(`
@@ -675,8 +720,8 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
       if (field === 'habitat' && filters.source) {
         conditions.push(`t.data_source = ${bind(filters.source)}`);
       }
-      if (field === 'source' && filters.habitat) {
-        conditions.push(`t.environment = ${bind(filters.habitat)}`);
+      if (field === 'source' && filters.habitat.length) {
+        conditions.push(environmentSelectionCondition('t.environment', bind(filters.habitat)));
       }
 
       const column = field === 'habitat' ? 't.environment' : 't.data_source';
@@ -715,8 +760,8 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
     if (filters.extinct !== undefined) {
       conditions.push(`lower(t.extinct) = ${bind(String(filters.extinct))}`);
     }
-    if (filters.habitat) {
-      conditions.push(`t.environment = ${bind(filters.habitat)}`);
+    if (filters.habitat.length) {
+      conditions.push(environmentSelectionCondition('t.environment', bind(filters.habitat)));
     }
     if (filters.source) {
       conditions.push(`t.data_source = ${bind(filters.source)}`);

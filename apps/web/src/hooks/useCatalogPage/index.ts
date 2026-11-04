@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCatalogFacetOptions, getSpecies } from '../../api/species';
+import { getEnvironmentValues } from '../../utils/environment-label';
 import type {
   CatalogFacetOption,
   TaxonomyFacetField,
@@ -27,7 +28,7 @@ function readCatalogUrl(): CatalogUrlState {
     order: params.get('order') ?? '',
     family: params.get('family') ?? '',
     genus: params.get('genus') ?? '',
-    habitat: params.get('habitat') ?? '',
+    habitat: [...new Set(params.getAll('habitat').flatMap(getEnvironmentValues))],
     source: params.get('source') ?? '',
     extinct: params.get('extinct') === 'true' || params.get('extinct') === 'false'
       ? params.get('extinct') ?? ''
@@ -61,13 +62,24 @@ function writeCatalogUrl(state: CatalogUrlState, mode: 'push' | 'replace'): void
   const url = new URL(window.location.href);
   const values: Record<string, string> = {
     search: state.search.trim(),
-    ...state.filters,
+    kingdom: state.filters.kingdom,
+    phylum: state.filters.phylum,
+    class: state.filters.class,
+    order: state.filters.order,
+    family: state.filters.family,
+    genus: state.filters.genus,
+    source: state.filters.source,
+    extinct: state.filters.extinct,
     page: state.page > 1 ? String(state.page) : '',
     sort: state.sort === 'relevance' ? '' : state.sort,
   };
   for (const [key, value] of Object.entries(values)) {
     if (value) url.searchParams.set(key, value);
     else url.searchParams.delete(key);
+  }
+  url.searchParams.delete('habitat');
+  for (const habitat of state.filters.habitat) {
+    url.searchParams.append('habitat', habitat);
   }
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
@@ -91,12 +103,13 @@ function resetDescendants(
 
 export function optionsWithSelected(
   options: CatalogFacetOption[],
-  selected: string,
+  selected: string | string[],
 ): CatalogFacetOption[] {
-  if (selected && !options.some((option) => option.value === selected)) {
-    return [{ value: selected, label: selected }, ...options];
-  }
-  return options;
+  const selectedValues = Array.isArray(selected) ? selected : [selected];
+  const missingOptions = selectedValues
+    .filter((value) => value && !options.some((option) => option.value === value))
+    .map((value) => ({ value, label: value }));
+  return [...missingOptions, ...options];
 }
 
 export function useCatalogPage() {
@@ -205,10 +218,17 @@ export function useCatalogPage() {
       page: 1,
     }, 'push');
   };
-  const updateAdditionalFilter = (field: 'habitat' | 'source', value: string) => {
+  const updateHabitatFilter = (habitat: string[]) => {
     navigateToCatalogState({
       ...catalogState,
-      filters: { ...filters, [field]: value },
+      filters: { ...filters, habitat },
+      page: 1,
+    }, 'push');
+  };
+  const updateSourceFilter = (source: string) => {
+    navigateToCatalogState({
+      ...catalogState,
+      filters: { ...filters, source },
       page: 1,
     }, 'push');
   };
@@ -231,11 +251,29 @@ export function useCatalogPage() {
         order: '',
         family: '',
         genus: '',
-        habitat: '',
+        habitat: [],
         source: '',
         extinct: '',
       },
       page: 1,
+    }, 'push');
+  };
+  const clearCatalog = () => {
+    navigateToCatalogState({
+      search: '',
+      filters: {
+        kingdom: '',
+        phylum: '',
+        class: '',
+        order: '',
+        family: '',
+        genus: '',
+        habitat: [],
+        source: '',
+        extinct: '',
+      },
+      page: 1,
+      sort: catalogState.sort,
     }, 'push');
   };
 
@@ -260,10 +298,12 @@ export function useCatalogPage() {
     isRetryingCatalog,
     updateTaxonomyFilter,
     updateExtinctionFilter,
-    updateAdditionalFilter,
+    updateHabitatFilter,
+    updateSourceFilter,
     updateSearch,
     updatePage,
     updateSort,
     clearFilters,
+    clearCatalog,
   };
 }

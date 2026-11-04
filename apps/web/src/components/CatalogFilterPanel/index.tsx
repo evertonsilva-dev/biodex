@@ -1,6 +1,19 @@
+import { useId, useState } from 'react';
 import type { TaxonomyFacetField } from '../../types/species';
+import { BiodexMultiSelect, BiodexSelect } from '../BiodexSelect';
 import type { CatalogFilterPanelProps } from './types';
-import { ClearButton, FilterControl, Notice, PageButton, Select, Sidebar, SidebarTitle } from './styles';
+import {
+  ActiveFilterCount,
+  ClearButton,
+  FilterControl,
+  FilterDisclosure,
+  FilterHint,
+  FilterSummary,
+  Notice,
+  PageButton,
+  Sidebar,
+  SidebarTitle,
+} from './styles';
 
 const taxonomyFields: Array<{
   field: TaxonomyFacetField;
@@ -19,84 +32,108 @@ const taxonomyFields: Array<{
 export function CatalogFilterPanel({
   filters,
   options,
+  selectedCount,
   hasError,
   isRetrying,
   onTaxonomyChange,
   onExtinctionChange,
-  onAdditionalFilterChange,
+  onHabitatChange,
+  onSourceChange,
   onClearFilters,
   onRetry,
 }: CatalogFilterPanelProps) {
-  const hasFilters = Object.values(filters).some(Boolean);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const filtersId = useId();
+  const hasFilters = Object.values(filters).some((value) => (
+    Array.isArray(value) ? value.length > 0 : Boolean(value)
+  ));
   return (
-    <Sidebar aria-label="Filtros do catálogo">
-      <SidebarTitle>
+    <FilterDisclosure>
+      <FilterSummary
+        type="button"
+        $expanded={isExpanded}
+        aria-expanded={isExpanded}
+        aria-controls={filtersId}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+      >
         Filtros
-        {hasFilters && (
-          <ClearButton type="button" onClick={onClearFilters}>
-            Limpar filtros
-          </ClearButton>
+        <ActiveFilterCount>
+          {selectedCount ? `${selectedCount} ativo${selectedCount === 1 ? '' : 's'}` : 'Nenhum ativo'}
+        </ActiveFilterCount>
+      </FilterSummary>
+      <Sidebar id={filtersId} $expanded={isExpanded} aria-label="Filtros do catálogo">
+        <SidebarTitle>
+          Filtros
+          {hasFilters && (
+            <ClearButton type="button" onClick={onClearFilters}>
+              Limpar filtros
+            </ClearButton>
+          )}
+        </SidebarTitle>
+        {taxonomyFields
+          .filter(({ parent }) => !parent || Boolean(filters[parent]))
+          .map(({ field, label, emptyLabel }) => (
+            <FilterControl key={field}>
+              {label}
+              <BiodexSelect
+                id={`${filtersId}-${field}`}
+                label={label}
+                options={options[field]}
+                value={filters[field]}
+                placeholder={emptyLabel}
+                onChange={(value) => onTaxonomyChange(field, value)}
+              />
+            </FilterControl>
+          ))}
+        <FilterControl>
+          Estado de extinção
+          <BiodexSelect
+            id={`${filtersId}-extinct`}
+            label="Estado de extinção"
+            options={[
+              { value: 'false', label: 'Viventes' },
+              { value: 'true', label: 'Extintas' },
+            ]}
+            value={filters.extinct}
+            placeholder="Todas"
+            onChange={onExtinctionChange}
+          />
+        </FilterControl>
+        <FilterControl>
+          Ambiente
+          <BiodexMultiSelect
+            id={`${filtersId}-habitat`}
+            label="Ambiente"
+            options={options.habitat}
+            value={filters.habitat}
+            aria-describedby="habitat-filter-hint"
+            placeholder="Selecione um ou mais ambientes"
+            onChange={onHabitatChange}
+          />
+          <FilterHint id="habitat-filter-hint">
+            Você pode combinar diferentes ambientes.
+          </FilterHint>
+        </FilterControl>
+        <FilterControl>
+          Fonte do registro
+          <BiodexSelect
+            id={`${filtersId}-source`}
+            label="Fonte do registro"
+            options={options.source}
+            value={filters.source}
+            placeholder="Todas"
+            onChange={onSourceChange}
+          />
+        </FilterControl>
+        {hasError && (
+          <Notice $error role="alert">
+            Não foi possível carregar as opções dos filtros.
+            <PageButton type="button" onClick={onRetry} disabled={isRetrying}>
+              {isRetrying ? 'Tentando novamente…' : 'Tente novamente'}
+            </PageButton>
+          </Notice>
         )}
-      </SidebarTitle>
-      {taxonomyFields
-        .filter(({ parent }) => !parent || Boolean(filters[parent]))
-        .map(({ field, label, emptyLabel }) => (
-          <FilterControl key={field}>
-            {label}
-            <Select
-              value={filters[field]}
-              onChange={(event) => onTaxonomyChange(field, event.target.value)}
-            >
-              <option value="">{emptyLabel}</option>
-              {options[field].map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </Select>
-          </FilterControl>
-        ))}
-      <FilterControl>
-        Estado de extinção
-        <Select
-          value={filters.extinct}
-          onChange={(event) => onExtinctionChange(event.target.value)}
-        >
-          <option value="">Todas</option>
-          <option value="false">Viventes</option>
-          <option value="true">Extintas</option>
-        </Select>
-      </FilterControl>
-      <FilterControl>
-        Ambiente
-        <Select
-          value={filters.habitat}
-          onChange={(event) => onAdditionalFilterChange('habitat', event.target.value)}
-        >
-          <option value="">Todos</option>
-          {options.habitat.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
-      </FilterControl>
-      <FilterControl>
-        Fonte do registro
-        <Select
-          value={filters.source}
-          onChange={(event) => onAdditionalFilterChange('source', event.target.value)}
-        >
-          <option value="">Todas</option>
-          {options.source.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </Select>
-      </FilterControl>
-      {hasError && (
-        <Notice $error role="alert">
-          Não foi possível carregar as opções dos filtros.
-          <PageButton type="button" onClick={onRetry} disabled={isRetrying}>
-            {isRetrying ? 'Tentando novamente…' : 'Tente novamente'}
-          </PageButton>
-        </Notice>
-      )}
-    </Sidebar>
+      </Sidebar>
+    </FilterDisclosure>
   );
 }

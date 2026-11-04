@@ -180,11 +180,11 @@ A ViralZone é apresentada como uma fonte externa para vírus, sem copiar seu co
 
 ### Busca, filtros e ordenação
 
-A busca do catálogo aceita nomes científicos, nomes populares e nomes científicos relacionados por sinonímia no Catalogue of Life; termos com pelo menos três caracteres são necessários. Os resultados priorizam correspondências exatas e prefixos antes de correspondências parciais. É possível combinar a busca com os filtros taxonômicos e de espécies extintas, ordenar por relevância, nome científico ou nome popular, e compartilhar a seleção pela URL.
+A busca do catálogo aceita nomes científicos, nomes populares e nomes científicos relacionados por sinonímia no Catalogue of Life; termos com pelo menos três caracteres são necessários. Os resultados priorizam correspondências exatas e prefixos antes de correspondências parciais. É possível combinar a busca com filtros taxonômicos, ambientes e fonte do registro, além de filtrar espécies viventes ou extintas. Ambientes múltiplos são divididos em opções individuais; a seleção de mais de um ambiente inclui espécies que correspondam a qualquer um deles. A ordenação pode ser por relevância, nome científico ou nome popular, e a seleção pode ser compartilhada pela URL.
 
 Endpoints:
 
-- `GET /api/catalog/species?page=1&pageSize=48&search=...&sort=relevance&kingdom=...&phylum=...&class=...&order=...&family=...&genus=...&extinct=true`
+- `GET /api/catalog/species?page=1&pageSize=48&search=...&sort=relevance&kingdom=...&phylum=...&class=...&order=...&family=...&genus=...&habitat=marine&habitat=freshwater&source=...&extinct=true`
 - `GET /api/catalog/species/:id` retorna o registro completo disponível de uma espécie aceita, incluindo sua ancestralidade taxonômica, autoria, informações sobre extinção e ambiente, nomes vernaculares, nomes e relações vinculados, identificadores das fontes e metadados da edição importada.
 - `GET /api/catalog/species/:id/enrichment` retorna descrições atribuídas às respectivas fontes e armazenadas em cache, informações de conservação e ocorrências, registros fósseis e, quando disponíveis, áudios licenciados de animais.
 - `GET /api/catalog/kingdoms`

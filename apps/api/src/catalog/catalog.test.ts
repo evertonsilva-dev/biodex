@@ -133,37 +133,40 @@ test('catalog extinction filter distinguishes living species from unknown status
   assert.deepEqual(database.queries[1].bindings, ['false']);
 });
 
-test('catalog filters can combine habitat and data source', async () => {
+test('catalog filters can combine multiple habitats and data source', async () => {
   const database = new CapturingDatabase(true);
   const controller = createCatalogController({ runtime: createRuntime(database) });
 
   await controller.species(createContext({
-    habitat: 'Forest',
+    habitat: ['Forest', 'Freshwater'],
     source: 'Catalogue of Life',
   }));
 
-  assert.match(database.queries[1].sql, /t\.environment = \$1/);
+  assert.match(database.queries[1].sql, /regexp_split_to_array/);
+  assert.match(database.queries[1].sql, /= ANY\(\$1::text\[\]\)/);
   assert.match(database.queries[1].sql, /t\.data_source = \$2/);
-  assert.deepEqual(database.queries[1].bindings, ['Forest', 'Catalogue of Life']);
+  assert.deepEqual(database.queries[1].bindings, [['Forest', 'Freshwater'], 'Catalogue of Life']);
 });
 
-test('habitat facets respect selected source, taxonomy, and extinction filters', async () => {
+test('source facets respect selected habitats, taxonomy, and extinction filters', async () => {
   const database = new CapturingDatabase(true);
   const controller = createCatalogController({ runtime: createRuntime(database) });
 
   await controller.facets(createContext({
-    field: 'habitat',
+    field: 'source',
     kingdom: 'animalia',
-    source: 'Paleobiology Database',
+    habitat: ['Forest', 'Freshwater'],
     extinct: 'true',
   }));
 
-  assert.match(database.queries[1].sql, /t\.data_source = \$3/);
+  assert.match(database.queries[1].sql, /regexp_split_to_array/);
+  assert.match(database.queries[1].sql, /= ANY\(\$3::text\[\]\)/);
+  assert.match(database.queries[1].sql, /WHEN 'fresh water' THEN 'freshwater'/);
   assert.match(database.queries[1].sql, /lower\(t\.extinct\) = \$2/);
   assert.deepEqual(database.queries[1].bindings, [
     'animalia',
     'true',
-    'Paleobiology Database',
+    ['Forest', 'Freshwater'],
   ]);
 });
 

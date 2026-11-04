@@ -14,7 +14,7 @@ export interface SpeciesFilters {
   order: string;
   family: string;
   genus: string;
-  habitat: string;
+  habitat: string[];
   source: string;
   extinct: string;
   page: number;
@@ -44,8 +44,8 @@ export function getSpecies(filters: SpeciesFilters, signal?: AbortSignal) {
     }
   }
 
-  if (filters.habitat) {
-    params.set('habitat', filters.habitat);
+  for (const habitat of filters.habitat) {
+    params.append('habitat', habitat);
   }
   if (filters.source) {
     params.set('source', filters.source);
@@ -78,12 +78,14 @@ export function getCatalogFacetOptions(
     'order',
     'family',
     'genus',
-    'habitat',
     'source',
   ] as const) {
     if (filters[name]) {
       params.set(name, filters[name]);
     }
+  }
+  for (const habitat of filters.habitat) {
+    params.append('habitat', habitat);
   }
   if (filters.extinct) {
     params.set('extinct', filters.extinct);
