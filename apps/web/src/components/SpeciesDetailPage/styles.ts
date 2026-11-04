@@ -326,6 +326,11 @@ export const Fact = styled.div`
     font-size: 0.92rem;
     line-height: 1.5;
   }
+  a {
+    color: var(--kingdom-color);
+    text-decoration: none;
+    font-weight: 700;
+  }
 `;
 
 export const Lineage = styled.ol`
@@ -635,10 +640,6 @@ export const SourceLink = styled.a`
   font-size: 0.84rem;
   font-weight: 700;
   text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
 `;
 
 export const RetryButton = styled.button`
