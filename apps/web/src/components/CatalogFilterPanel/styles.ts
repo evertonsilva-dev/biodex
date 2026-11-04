@@ -17,6 +17,10 @@ export const Sidebar = styled.aside`
 
 export const SidebarTitle = styled.h2`
   margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
   /* color: ${({ theme }) => theme.colors.ink}; */
   font-family: ${({ theme }) => theme.fonts.display};
   font-size: 1.1rem;
@@ -42,21 +46,6 @@ export const FilterControl = styled.label`
   font-weight: 700;
 `;
 
-export const CheckboxControl = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  color: ${({ theme }) => theme.colors.ink};
-  font-size: 0.85rem;
-  cursor: pointer;
-
-  input {
-    width: 1rem;
-    height: 1rem;
-    accent-color: ${({ theme }) => theme.colors.green};
-  }
-`;
-
 export const PageButton = styled.button`
   padding: 0.65rem 0.9rem;
   border: 1px solid ${({ theme }) => theme.colors.line};
@@ -68,6 +57,22 @@ export const PageButton = styled.button`
   &:disabled {
     cursor: not-allowed;
     opacity: 0.45;
+  }
+`;
+
+export const ClearButton = styled.button`
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.green};
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
   }
 `;
 

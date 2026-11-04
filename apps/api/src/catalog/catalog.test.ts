@@ -85,7 +85,10 @@ test('species searches use explicit PostgreSQL placeholders and ordered bindings
 
   const listQuery = database.queries[2];
   assert.match(listQuery.sql, /k\.slug = \$1/);
-  assert.match(listQuery.sql, /LIMIT \$7 OFFSET \$8/);
+  assert.match(listQuery.sql, /ORDER BY CASE[\s\S]*lower\(t\.scientific_name\)/);
+  assert.match(listQuery.sql, /lower\(matched_name\.name\)/);
+  assert.match(listQuery.sql, /synonym\.scientific_name ILIKE/);
+  assert.match(listQuery.sql, /LIMIT \$9 OFFSET \$10/);
   assert.deepEqual(listQuery.bindings, [
     'animalia',
     '%Panthera leo%',
@@ -93,8 +96,74 @@ test('species searches use explicit PostgreSQL placeholders and ordered bindings
     '%Panthera leo%',
     '%Panthera leo%',
     '%Panthera leo%',
+    'Panthera leo',
+    'Panthera leo%',
     24,
     24,
+  ]);
+});
+
+test('catalog species can be sorted by common name', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await controller.species(createContext({ sort: 'common' }));
+
+  assert.match(database.queries[2].sql, /ORDER BY common_name NULLS LAST, t\.scientific_name/);
+});
+
+test('catalog species reject unsupported sort values', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await assert.rejects(
+    controller.species(createContext({ sort: 'random' })),
+    (error: unknown) => error instanceof HttpError && error.status === 400,
+  );
+});
+
+test('catalog extinction filter distinguishes living species from unknown status', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await controller.species(createContext({ extinct: 'false' }));
+
+  assert.match(database.queries[1].sql, /lower\(t\.extinct\) = \$1/);
+  assert.doesNotMatch(database.queries[1].sql, /coalesce\(lower\(t\.extinct\)/);
+  assert.deepEqual(database.queries[1].bindings, ['false']);
+});
+
+test('catalog filters can combine habitat and data source', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await controller.species(createContext({
+    habitat: 'Forest',
+    source: 'Catalogue of Life',
+  }));
+
+  assert.match(database.queries[1].sql, /t\.environment = \$1/);
+  assert.match(database.queries[1].sql, /t\.data_source = \$2/);
+  assert.deepEqual(database.queries[1].bindings, ['Forest', 'Catalogue of Life']);
+});
+
+test('habitat facets respect selected source, taxonomy, and extinction filters', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await controller.facets(createContext({
+    field: 'habitat',
+    kingdom: 'animalia',
+    source: 'Paleobiology Database',
+    extinct: 'true',
+  }));
+
+  assert.match(database.queries[1].sql, /t\.data_source = \$3/);
+  assert.match(database.queries[1].sql, /lower\(t\.extinct\) = \$2/);
+  assert.deepEqual(database.queries[1].bindings, [
+    'animalia',
+    'true',
+    'Paleobiology Database',
   ]);
 });
 

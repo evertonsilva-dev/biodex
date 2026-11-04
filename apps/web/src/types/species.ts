@@ -170,7 +170,8 @@ export interface KingdomsResponse {
   data: Kingdom[];
 }
 
-export type CatalogFacetField = 'kingdom' | 'phylum' | 'class' | 'order' | 'family' | 'genus';
+export type TaxonomyFacetField = 'kingdom' | 'phylum' | 'class' | 'order' | 'family' | 'genus';
+export type CatalogFacetField = TaxonomyFacetField | 'habitat' | 'source';
 
 export interface CatalogFacetOption {
   value: string;

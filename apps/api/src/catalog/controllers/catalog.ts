@@ -27,10 +27,13 @@ interface CatalogFilters {
   order: string;
   family: string;
   genus: string;
+  habitat: string;
+  source: string;
   extinct?: boolean;
 }
 
 type TaxonomyLevel = 'phylum' | 'class' | 'order' | 'family' | 'genus';
+type CatalogSort = 'relevance' | 'scientific' | 'common';
 type CatalogQuery = Record<string, unknown>;
 
 function errorMessage(error: unknown): string {
@@ -107,6 +110,8 @@ function parseCatalogFilters(query: CatalogQuery, ctx: CatalogRequestContext): C
     order: parseOptionalString(query, 'order', MAX_FILTER_LENGTH, ctx),
     family: parseOptionalString(query, 'family', MAX_FILTER_LENGTH, ctx),
     genus: parseOptionalString(query, 'genus', MAX_FILTER_LENGTH, ctx),
+    habitat: parseOptionalString(query, 'habitat', MAX_FILTER_LENGTH, ctx),
+    source: parseOptionalString(query, 'source', MAX_FILTER_LENGTH, ctx),
     extinct: undefined,
   };
   const extinct = parseOptionalString(query, 'extinct', 5, ctx);
@@ -137,7 +142,7 @@ async function ensureCatalogReady(runtime: CatalogRuntime, ctx: CatalogRequestCo
 function createFilters(
   query: CatalogQuery,
   ctx: CatalogRequestContext,
-): { where: string; bindings: unknown[] } {
+): { where: string; bindings: unknown[]; searchTerm: string } {
   const filters = parseCatalogFilters(query, ctx);
   const conditions = [
     "t.status = 'accepted'",
@@ -160,8 +165,14 @@ function createFilters(
       conditions.push(`${FACET_COLUMNS[level]} = ${bind(filters[level])}`);
     }
   }
+  if (filters.habitat) {
+    conditions.push(`t.environment = ${bind(filters.habitat)}`);
+  }
+  if (filters.source) {
+    conditions.push(`t.data_source = ${bind(filters.source)}`);
+  }
   if (filters.extinct !== undefined) {
-    conditions.push(`coalesce(lower(t.extinct), 'false') = ${bind(String(filters.extinct))}`);
+    conditions.push(`lower(t.extinct) = ${bind(String(filters.extinct))}`);
   }
 
   const search = parseOptionalString(query, 'search', MAX_SEARCH_LENGTH, ctx);
@@ -203,7 +214,63 @@ function createFilters(
     )`);
   }
 
-  return { where: conditions.join(' AND '), bindings };
+  return { where: conditions.join(' AND '), bindings, searchTerm: search };
+}
+
+function parseCatalogSort(query: CatalogQuery, ctx: CatalogRequestContext): CatalogSort {
+  const sort = parseOptionalString(query, 'sort', 20, ctx);
+  if (!sort || sort === 'relevance') return 'relevance';
+  if (sort === 'scientific' || sort === 'common') return sort;
+  ctx.throw(400, 'sort must be relevance, scientific, or common.');
+}
+
+function relevanceOrder(searchTerm: string, bindings: unknown[]): string {
+  const escapedSearch = searchTerm.replace(/[\\%_]/g, '\\$&');
+  const exact = `$${bindings.push(searchTerm)}`;
+  const prefix = `$${bindings.push(`${escapedSearch}%`)}`;
+
+  return `CASE
+    WHEN lower(t.scientific_name) = lower(${exact}) THEN 0
+    WHEN t.scientific_name ILIKE ${prefix} ESCAPE E'\\\\' THEN 1
+    WHEN EXISTS (
+      SELECT 1 FROM col_vernacular_name matched_name
+      WHERE matched_name.taxon_external_id = t.external_id
+        AND lower(matched_name.name) = lower(${exact})
+    ) THEN 2
+    WHEN EXISTS (
+      SELECT 1 FROM col_vernacular_name matched_name
+      WHERE matched_name.taxon_external_id = t.external_id
+        AND matched_name.name ILIKE ${prefix} ESCAPE E'\\\\'
+    ) THEN 3
+    WHEN EXISTS (
+      SELECT 1
+      FROM col_name_relation relation
+      JOIN col_taxon_usage synonym
+        ON (
+          relation.related_name_external_id = t.external_id
+          AND synonym.external_id = relation.name_external_id
+        ) OR (
+          relation.name_external_id = t.external_id
+          AND synonym.external_id = relation.related_name_external_id
+        )
+      WHERE lower(synonym.scientific_name) = lower(${exact})
+    ) THEN 4
+    WHEN EXISTS (
+      SELECT 1
+      FROM col_name_relation relation
+      JOIN col_taxon_usage synonym
+        ON (
+          relation.related_name_external_id = t.external_id
+          AND synonym.external_id = relation.name_external_id
+        ) OR (
+          relation.name_external_id = t.external_id
+          AND synonym.external_id = relation.related_name_external_id
+        )
+      WHERE synonym.scientific_name ILIKE ${prefix} ESCAPE E'\\\\'
+    ) THEN 5
+    WHEN t.tax_group ILIKE ${prefix} ESCAPE E'\\\\' THEN 6
+    ELSE 7
+  END`;
 }
 
 function toSpecies(row: QueryResultRow) {
@@ -302,7 +369,8 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
     if (!Number.isSafeInteger(offset)) {
       ctx.throw(400, 'Requested page is too large.');
     }
-    const { where, bindings } = createFilters(ctx.query, ctx);
+    const { where, bindings, searchTerm } = createFilters(ctx.query, ctx);
+    const sort = parseCatalogSort(ctx.query, ctx);
     const countResult = await runtime.db.query(
       `SELECT count(*)::text AS total
        FROM col_taxon_usage t
@@ -310,6 +378,14 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
        WHERE ${where}`,
       bindings,
     );
+    const rowsBindings = [...bindings];
+    const orderBy = sort === 'scientific'
+      ? 't.scientific_name NULLS LAST, t.external_id'
+      : sort === 'common'
+        ? 'common_name NULLS LAST, t.scientific_name NULLS LAST, t.external_id'
+        : searchTerm
+          ? `${relevanceOrder(searchTerm, rowsBindings)}, t.scientific_name NULLS LAST, t.external_id`
+          : 't.scientific_name NULLS LAST, t.external_id';
     const rowsResult = await runtime.db.query(
       `SELECT
          t.external_id, t.scientific_name, t.environment, t.extinct, t.phylum, t.taxon_class,
@@ -330,9 +406,9 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
          LIMIT 1
        ) common_name ON true
        WHERE ${where}
-       ORDER BY t.scientific_name NULLS LAST, t.external_id
-       LIMIT $${bindings.length + 1} OFFSET $${bindings.length + 2}`,
-      [...bindings, pageSize, offset],
+       ORDER BY ${orderBy}
+       LIMIT $${rowsBindings.length + 1} OFFSET $${rowsBindings.length + 2}`,
+      [...rowsBindings, pageSize, offset],
     );
     const total = Number(countResult.rows[0].total);
 
@@ -553,7 +629,14 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
     if (field === 'kingdom') {
       const extinctCondition = filters.extinct === undefined
         ? ''
-        : `AND coalesce(lower(t.extinct), 'false') = ${bind(String(filters.extinct))}`;
+        : `AND lower(t.extinct) = ${bind(String(filters.extinct))}`;
+      const filterConditions = [
+        ...TAXONOMY_LEVELS
+          .filter((level) => filters[level])
+          .map((level) => `AND ${FACET_COLUMNS[level]} = ${bind(filters[level])}`),
+        ...(filters.habitat ? [`AND t.environment = ${bind(filters.habitat)}`] : []),
+        ...(filters.source ? [`AND t.data_source = ${bind(filters.source)}`] : []),
+      ];
       const result = await runtime.db.query(`
         SELECT
           k.slug AS value,
@@ -567,6 +650,7 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
             AND t.rank = 'species'
             AND t.is_catalog_species = true
             ${extinctCondition}
+            ${filterConditions.join('\n            ')}
         )
         ORDER BY k.name
       `, bindings);
@@ -574,8 +658,44 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
       return;
     }
 
+    if (field === 'habitat' || field === 'source') {
+      const taxonomyConditions = TAXONOMY_LEVELS
+        .filter((level) => filters[level])
+        .map((level) => `${FACET_COLUMNS[level]} = ${bind(filters[level])}`);
+      const conditions = [
+        "t.status = 'accepted'",
+        "t.rank = 'species'",
+        't.is_catalog_species = true',
+        ...(filters.kingdom ? [`k.slug = ${bind(filters.kingdom)}`] : ['t.is_virus = false']),
+        ...taxonomyConditions,
+      ];
+      if (filters.extinct !== undefined) {
+        conditions.push(`lower(t.extinct) = ${bind(String(filters.extinct))}`);
+      }
+      if (field === 'habitat' && filters.source) {
+        conditions.push(`t.data_source = ${bind(filters.source)}`);
+      }
+      if (field === 'source' && filters.habitat) {
+        conditions.push(`t.environment = ${bind(filters.habitat)}`);
+      }
+
+      const column = field === 'habitat' ? 't.environment' : 't.data_source';
+      const result = await runtime.db.query(`
+        SELECT DISTINCT ${column} AS value
+        FROM col_taxon_usage t
+        JOIN col_kingdom k ON k.name = t.kingdom
+        WHERE ${conditions.join(' AND ')}
+          AND NULLIF(BTRIM(${column}), '') IS NOT NULL
+        ORDER BY value
+      `, bindings);
+      ctx.body = {
+        data: result.rows.map((row) => ({ value: row.value, label: row.value })),
+      };
+      return;
+    }
+
     if (!isTaxonomyLevel(field)) {
-      return ctx.throw(400, 'field must be kingdom, phylum, class, order, family, or genus.');
+      return ctx.throw(400, 'field must be kingdom, phylum, class, order, family, genus, habitat, or source.');
     }
     const taxonomyField: TaxonomyLevel = field;
     const fieldIndex = TAXONOMY_LEVELS.indexOf(taxonomyField);
@@ -593,7 +713,13 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
       conditions.push(`${FACET_COLUMNS[level]} = ${bind(filters[level])}`);
     }
     if (filters.extinct !== undefined) {
-      conditions.push(`coalesce(lower(t.extinct), 'false') = ${bind(String(filters.extinct))}`);
+      conditions.push(`lower(t.extinct) = ${bind(String(filters.extinct))}`);
+    }
+    if (filters.habitat) {
+      conditions.push(`t.environment = ${bind(filters.habitat)}`);
+    }
+    if (filters.source) {
+      conditions.push(`t.data_source = ${bind(filters.source)}`);
     }
 
     const result = await runtime.db.query(`

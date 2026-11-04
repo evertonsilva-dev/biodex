@@ -1,4 +1,4 @@
-import type { CatalogFacetField, CatalogFacetOption } from '../../types/species';
+import type { CatalogFacetField, CatalogFacetOption, TaxonomyFacetField } from '../../types/species';
 import type { CatalogFilters } from '../../hooks/useCatalogPage/types';
 
 export interface CatalogFilterPanelProps {
@@ -6,7 +6,9 @@ export interface CatalogFilterPanelProps {
   options: Record<CatalogFacetField, CatalogFacetOption[]>;
   hasError: boolean;
   isRetrying: boolean;
-  onTaxonomyChange(field: CatalogFacetField, value: string): void;
-  onExtinctionChange(checked: boolean): void;
+  onTaxonomyChange(field: TaxonomyFacetField, value: string): void;
+  onExtinctionChange(value: string): void;
+  onAdditionalFilterChange(field: 'habitat' | 'source', value: string): void;
+  onClearFilters(): void;
   onRetry(): void;
 }

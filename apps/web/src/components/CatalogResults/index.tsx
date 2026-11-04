@@ -2,7 +2,7 @@ import { SpeciesCard } from '../SpeciesCard';
 import { SpeciesCardSkeleton } from '../SpeciesCardSkeleton';
 import { Skeleton } from '../Skeleton';
 import type { CatalogResultsProps } from './types';
-import { Grid, Notice, PageButton, Pagination, ResultCount, Results } from './styles';
+import { Grid, Notice, PageButton, Pagination, ResultCount, Results, ResultsToolbar, SortLabel, SortSelect } from './styles';
 
 export function CatalogResults({
   data,
@@ -10,18 +10,32 @@ export function CatalogResults({
   isError,
   isRetrying,
   page,
+  sort,
   onRetry,
   onPageChange,
+  onSortChange,
 }: CatalogResultsProps) {
   return (
     <Results>
-      <ResultCount>
-        {data
-          ? <><strong>{data.meta.pagination.total.toLocaleString('pt-BR')}</strong> espécies aceitas no catálogo</>
-          : isPending
-            ? <><Skeleton $width="3rem" $height="0.85rem" /> <Skeleton $width="12rem" $height="0.85rem" /></>
-            : null}
-      </ResultCount>
+      <ResultsToolbar>
+        <ResultCount>
+          {data
+            ? <><strong>{data.meta.pagination.total.toLocaleString('pt-BR')}</strong> espécies encontradas</>
+            : isPending
+              ? <><Skeleton $width="3rem" $height="0.85rem" /> <Skeleton $width="12rem" $height="0.85rem" /></>
+              : null}
+        </ResultCount>
+        <SortLabel>
+          Ordenar por
+          <SortSelect value={sort} onChange={(event) => onSortChange(
+            event.target.value as CatalogResultsProps['sort'],
+          )}>
+            <option value="relevance">Relevância</option>
+            <option value="scientific">Nome científico</option>
+            <option value="common">Nome popular</option>
+          </SortSelect>
+        </SortLabel>
+      </ResultsToolbar>
       {isPending && !data && (
         <Grid role="status" aria-label="Carregando espécies do catálogo">
           {Array.from({ length: 8 }, (_, index) => (
@@ -39,7 +53,7 @@ export function CatalogResults({
       )}
       {data && data.data.length === 0 && (
         <Notice>
-          Não há espécies para este filtro. Confira os filtros ou importe o catálogo do Catalogue of Life.
+          Não encontramos espécies com essa busca e combinação de filtros. Tente outro termo ou ajuste os filtros.
         </Notice>
       )}
       {data && data.data.length > 0 && (

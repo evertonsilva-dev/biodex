@@ -1,7 +1,7 @@
 
 
 import { useCatalogPage, optionsWithSelected, MIN_SEARCH_LENGTH } from '../../hooks/useCatalogPage';
-import type { CatalogFacetField } from '../../types/species';
+import type { TaxonomyFacetField } from '../../types/species';
 import { CatalogFilterPanel } from '../CatalogFilterPanel';
 import { CatalogResults } from '../CatalogResults';
 import { TopBar } from '../TopBar';
@@ -20,10 +20,11 @@ import {
 
 export function CatalogPage() {
   const {
-    filters, search, page, kingdomOptionsQuery, phylumOptionsQuery, classOptionsQuery,
-    orderOptionsQuery, familyOptionsQuery, genusOptionsQuery, facetQueries, speciesQuery,
+    filters, search, page, sort, kingdomOptionsQuery, phylumOptionsQuery, classOptionsQuery,
+    orderOptionsQuery, familyOptionsQuery, genusOptionsQuery, habitatOptionsQuery,
+    sourceOptionsQuery, facetQueries, speciesQuery,
     retryCatalog, isRetryingCatalog, updateTaxonomyFilter, updateExtinctionFilter,
-    updateSearch, updatePage,
+    updateAdditionalFilter, updateSearch, updatePage, updateSort, clearFilters,
   } = useCatalogPage();
 
   return (
@@ -44,13 +45,13 @@ export function CatalogPage() {
         <SearchBar aria-label="Busca no catálogo">
           <Search
             type="search"
-            placeholder="Buscar por nome popular ou científico"
-            aria-label="Buscar espécies"
+            placeholder="Nome popular, científico ou sinônimo"
+            aria-label="Buscar espécies por nome popular, científico ou sinônimo"
             value={search}
             onChange={(event) => updateSearch(event.target.value)}
           />
           {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LENGTH && (
-            <SearchHint>Digite pelo menos {MIN_SEARCH_LENGTH} caracteres para pesquisar.</SearchHint>
+            <SearchHint>Pesquise por nome popular, científico ou sinônimo. Mínimo de {MIN_SEARCH_LENGTH} caracteres.</SearchHint>
           )}
         </SearchBar>
 
@@ -64,11 +65,15 @@ export function CatalogPage() {
               order: optionsWithSelected(orderOptionsQuery.data?.data ?? [], filters.order),
               family: optionsWithSelected(familyOptionsQuery.data?.data ?? [], filters.family),
               genus: optionsWithSelected(genusOptionsQuery.data?.data ?? [], filters.genus),
+              habitat: optionsWithSelected(habitatOptionsQuery.data?.data ?? [], filters.habitat),
+              source: optionsWithSelected(sourceOptionsQuery.data?.data ?? [], filters.source),
             }}
             hasError={facetQueries.some((query) => query.isError)}
             isRetrying={isRetryingCatalog}
-            onTaxonomyChange={(field: CatalogFacetField, value) => updateTaxonomyFilter(field, value)}
+            onTaxonomyChange={(field: TaxonomyFacetField, value) => updateTaxonomyFilter(field, value)}
             onExtinctionChange={updateExtinctionFilter}
+            onAdditionalFilterChange={updateAdditionalFilter}
+            onClearFilters={clearFilters}
             onRetry={retryCatalog}
           />
           <CatalogResults
@@ -77,8 +82,10 @@ export function CatalogPage() {
             isError={speciesQuery.isError}
             isRetrying={isRetryingCatalog}
             page={page}
+            sort={sort}
             onRetry={retryCatalog}
             onPageChange={updatePage}
+            onSortChange={updateSort}
           />
         </CatalogLayout>
 

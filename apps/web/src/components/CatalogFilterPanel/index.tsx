@@ -1,12 +1,12 @@
-import type { CatalogFacetField } from '../../types/species';
+import type { TaxonomyFacetField } from '../../types/species';
 import type { CatalogFilterPanelProps } from './types';
-import { CheckboxControl, FilterControl, Notice, PageButton, Select, Sidebar, SidebarTitle } from './styles';
+import { ClearButton, FilterControl, Notice, PageButton, Select, Sidebar, SidebarTitle } from './styles';
 
 const taxonomyFields: Array<{
-  field: CatalogFacetField;
+  field: TaxonomyFacetField;
   label: string;
   emptyLabel: string;
-  parent?: CatalogFacetField;
+  parent?: TaxonomyFacetField;
 }> = [
   { field: 'kingdom', label: 'Reino', emptyLabel: 'Todos' },
   { field: 'phylum', label: 'Filo', emptyLabel: 'Todos', parent: 'kingdom' },
@@ -23,11 +23,21 @@ export function CatalogFilterPanel({
   isRetrying,
   onTaxonomyChange,
   onExtinctionChange,
+  onAdditionalFilterChange,
+  onClearFilters,
   onRetry,
 }: CatalogFilterPanelProps) {
+  const hasFilters = Object.values(filters).some(Boolean);
   return (
     <Sidebar aria-label="Filtros do catálogo">
-      <SidebarTitle>Filtros</SidebarTitle>
+      <SidebarTitle>
+        Filtros
+        {hasFilters && (
+          <ClearButton type="button" onClick={onClearFilters}>
+            Limpar filtros
+          </ClearButton>
+        )}
+      </SidebarTitle>
       {taxonomyFields
         .filter(({ parent }) => !parent || Boolean(filters[parent]))
         .map(({ field, label, emptyLabel }) => (
@@ -44,14 +54,41 @@ export function CatalogFilterPanel({
             </Select>
           </FilterControl>
         ))}
-      <CheckboxControl>
-        <input
-          type="checkbox"
-          checked={filters.extinct === 'true'}
-          onChange={(event) => onExtinctionChange(event.target.checked)}
-        />
-        Mostrar espécies extintas
-      </CheckboxControl>
+      <FilterControl>
+        Estado de extinção
+        <Select
+          value={filters.extinct}
+          onChange={(event) => onExtinctionChange(event.target.value)}
+        >
+          <option value="">Todas</option>
+          <option value="false">Viventes</option>
+          <option value="true">Extintas</option>
+        </Select>
+      </FilterControl>
+      <FilterControl>
+        Ambiente
+        <Select
+          value={filters.habitat}
+          onChange={(event) => onAdditionalFilterChange('habitat', event.target.value)}
+        >
+          <option value="">Todos</option>
+          {options.habitat.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
+      </FilterControl>
+      <FilterControl>
+        Fonte do registro
+        <Select
+          value={filters.source}
+          onChange={(event) => onAdditionalFilterChange('source', event.target.value)}
+        >
+          <option value="">Todas</option>
+          {options.source.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </Select>
+      </FilterControl>
       {hasError && (
         <Notice $error role="alert">
           Não foi possível carregar as opções dos filtros.
