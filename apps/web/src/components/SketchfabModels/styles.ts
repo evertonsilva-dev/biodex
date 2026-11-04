@@ -1,11 +1,4 @@
-import styled from 'styled-components';
-
-export const ModelNote = styled.p`
-  margin: -0.35rem 0 1rem;
-  color: ${({ theme }) => theme.colors.muted};
-  font-size: 0.82rem;
-  line-height: 1.55;
-`;
+import styled from "styled-components";
 
 export const ModelChoices = styled.div`
   display: grid;
@@ -21,22 +14,21 @@ export const ModelChoice = styled.button`
   gap: 0.75rem;
   min-width: 0;
   padding: 0.55rem;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: 10px;
-  background: ${({ theme }) => theme.colors.paper};
+  border: none;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  /* border-radius: 10px; */
+  background: transparent;
   color: ${({ theme }) => theme.colors.ink};
   font: inherit;
   text-align: left;
   cursor: pointer;
-
-  &[aria-pressed='true'] {
+  transition:
+    border-color 0.3s ease-in-out,
+    background 0.3s ease-in-out;
+  &[aria-pressed="true"],
+  &:hover {
     border-color: var(--kingdom-color);
     background: var(--kingdom-tint);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--kingdom-color);
-    outline-offset: 2px;
   }
 `;
 
@@ -79,10 +71,6 @@ export const Attribution = styled.p`
     color: var(--kingdom-color);
     font-weight: 700;
     text-decoration: none;
-  }
-
-  a:hover {
-    text-decoration: underline;
   }
 `;
 

@@ -12,7 +12,10 @@ import type {
 class CapturingDatabase implements CatalogDatabase {
   readonly queries: Array<{ sql: string; bindings: unknown[] }> = [];
 
-  constructor(private readonly ready: boolean) {}
+  constructor(
+    private readonly ready: boolean,
+    private readonly speciesRows: QueryResultRow[] = [],
+  ) {}
 
   async query<Row extends QueryResultRow = QueryResultRow>(
     sql: string,
@@ -23,7 +26,9 @@ class CapturingDatabase implements CatalogDatabase {
       ? [{ ready: this.ready }]
       : sql.includes('count(*)::text AS total')
         ? [{ total: '0' }]
-        : [];
+        : sql.includes('COALESCE(common_name.name')
+          ? this.speciesRows
+          : [];
     return { rows: rows as Row[] };
   }
 }
@@ -91,6 +96,23 @@ test('species searches use explicit PostgreSQL placeholders and ordered bindings
     24,
     24,
   ]);
+});
+
+test('catalog species expose their source taxon identifier', async () => {
+  const database = new CapturingDatabase(true, [{
+    external_id: 'col:123',
+    source_id: 'source:456',
+    scientific_name: 'Test species',
+    common_name: 'Test',
+  }]);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+  const context = createContext({});
+
+  await controller.species(context);
+
+  const response = context.body as { data: Array<{ sourceId: string }> };
+  assert.equal(response.data[0].sourceId, 'source:456');
+  assert.match(database.queries[2].sql, /t\.external_id, t\.source_id/);
 });
 
 test('catalog routes report incomplete schema as unavailable', async () => {

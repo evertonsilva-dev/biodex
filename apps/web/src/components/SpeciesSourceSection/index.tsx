@@ -1,17 +1,20 @@
 import { displayValue, formatLocalDate } from '../../utils/species-detail-formatters';
 import type { SpeciesSourceSectionProps } from './types';
-import { Empty, Fact, FactGrid, Section, SectionTitle } from './styles';
+import { Fact, FactGrid, Section, SectionTitle } from './styles';
 
 export function SpeciesSourceSection({ dataset }: SpeciesSourceSectionProps) {
-  const doiUrl = dataset?.doi
+  if (!dataset) {
+    return null;
+  }
+
+  const doiUrl = dataset.doi
     ? `https://doi.org/${dataset.doi.replace(/^https?:\/\/doi\.org\//i, '')}`
     : null;
 
   return (
     <Section>
       <SectionTitle>Fonte dos dados</SectionTitle>
-      {dataset ? (
-        <FactGrid>
+      <FactGrid>
           <Fact>
             <dt>Base</dt>
             <dd>{dataset.title}</dd>
@@ -40,10 +43,7 @@ export function SpeciesSourceSection({ dataset }: SpeciesSourceSectionProps) {
               ) : 'Não informado'}
             </dd>
           </Fact>
-        </FactGrid>
-      ) : (
-        <Empty>Os metadados da edição importada não estão disponíveis.</Empty>
-      )}
+      </FactGrid>
     </Section>
   );
 }

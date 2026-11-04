@@ -1,14 +1,14 @@
 import { useSpeciesMediaSidebar } from '../../hooks/useSpeciesMediaSidebar';
 import { SpeciesOccurrenceMap } from '../SpeciesOccurrenceMap';
 import { SoundAudioPlayer } from '../SoundAudioPlayer';
-import { Skeleton } from '../Skeleton';
 import type { SpeciesMediaSidebarProps } from './types';
-import { Empty, EnrichmentText, RetryButton, Section, SectionTitle, SkeletonMap, SkeletonMapCaption, SoundItem, SoundList, SourceLink } from './styles';
+import { EnrichmentText, RetryButton, Section, SectionTitle, SoundItem, SoundList, SourceLink } from './styles';
 
 export function SpeciesMediaSidebar({
   enrichment,
-  isLoading,
-  onRetry,
+  hasError,
+  isFetching,
+  onRefresh,
 }: SpeciesMediaSidebarProps) {
   const { registerAudioPlayer, handleAudioPlaybackStart } = useSpeciesMediaSidebar();
 
@@ -16,15 +16,26 @@ export function SpeciesMediaSidebar({
   const hasGbif = gbif !== null && gbif !== undefined;
   const hasMap = hasGbif && (gbif.occurrenceCount ?? 0) > 0;
   const hasSounds = hasGbif && gbif.sounds.length > 0;
-  const hasGbifErrors = Boolean(
-    enrichment?.errors.includes('GBIF') || gbif?.sourceErrors.length,
-  );
-  if (!hasMap && !hasSounds && !hasGbifErrors && !isLoading) {
+  const hasRefreshWarning = hasError || Boolean(enrichment?.errors.length);
+  if (!hasMap && !hasSounds && !hasRefreshWarning) {
     return null;
   }
 
   return (
     <>
+      {hasRefreshWarning && (
+        <Section aria-live="polite">
+          <SectionTitle>Dados complementares incompletos</SectionTitle>
+          <EnrichmentText>
+            {hasError
+              ? 'Não foi possível carregar os dados complementares.'
+              : 'Algumas fontes externas não responderam; os dados podem estar incompletos.'}
+          </EnrichmentText>
+          <RetryButton type="button" onClick={onRefresh} disabled={isFetching}>
+            {isFetching ? 'Atualizando…' : 'Tentar novamente'}
+          </RetryButton>
+        </Section>
+      )}
       {hasMap && gbif ? (
         <Section>
           <SectionTitle>Mapa de registros conhecidos</SectionTitle>
@@ -37,30 +48,7 @@ export function SpeciesMediaSidebar({
             occurrenceCount={gbif.occurrenceCount}
           />
         </Section>
-      ) : !gbif && isLoading ? (
-        <Section role="status" aria-label="Carregando mapa e vocalizações">
-          <SectionTitle>Mapa e vocalizações</SectionTitle>
-          <SkeletonMap>
-            <Skeleton $height="100%" $radius="10px" />
-          </SkeletonMap>
-          <SkeletonMapCaption>
-            <Skeleton $width="78%" $height="0.8rem" />
-            <Skeleton $width="58%" $height="0.8rem" />
-          </SkeletonMapCaption>
-        </Section>
       ) : null}
-      {hasGbifErrors && !isLoading && (
-        <Section>
-          <SectionTitle>Mapa e vocalizações indisponíveis</SectionTitle>
-          <Empty role="status">
-            O GBIF não respondeu à consulta. Tente novamente para buscar os
-            registros mais recentes.
-          </Empty>
-          <RetryButton type="button" onClick={onRetry}>
-            Tentar novamente
-          </RetryButton>
-        </Section>
-      )}
       {hasSounds && gbif && (
         <Section>
           <SectionTitle>Vocalizações e sons</SectionTitle>

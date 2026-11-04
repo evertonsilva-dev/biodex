@@ -1,13 +1,19 @@
 import { displayValue, rankLabel } from '../../utils/species-detail-formatters';
 import type { SpeciesNamesSectionProps } from './types';
-import { DataTable, Empty, Section, SectionTitle, TableWrap } from './styles';
+import { DataTable, Section, SectionTitle, TableWrap } from './styles';
 
 export function SpeciesNamesSection({ species }: SpeciesNamesSectionProps) {
+  const hasVernacularNames = species.vernacularNames.length > 0;
+  const hasRelatedNames = species.relatedNames.length > 0;
+  if (!hasVernacularNames && !hasRelatedNames) {
+    return null;
+  }
+
   return (
     <>
-      <Section>
-        <SectionTitle>Nomes populares e vernaculares</SectionTitle>
-        {species.vernacularNames.length > 0 ? (
+      {hasVernacularNames && (
+        <Section>
+          <SectionTitle>Nomes populares e vernaculares</SectionTitle>
           <TableWrap>
             <DataTable>
               <thead>
@@ -23,24 +29,22 @@ export function SpeciesNamesSection({ species }: SpeciesNamesSectionProps) {
               <tbody>
                 {species.vernacularNames.map((name, index) => (
                   <tr key={`${name.sourceId ?? 'name'}-${name.name}-${name.language}-${index}`}>
-                    <td>{displayValue(name.name)}{name.transliteration ? ` (${name.transliteration})` : ''}</td>
-                    <td>{displayValue(name.language)}</td>
-                    <td>{displayValue(name.preferred)}</td>
-                    <td>{[name.country, name.area].filter(Boolean).join(' · ') || '—'}</td>
-                    <td>{displayValue(name.remarks)}</td>
-                    <td>{displayValue(name.sourceId)}</td>
+                    <td data-label="Nome">{displayValue(name.name)}{name.transliteration ? ` (${name.transliteration})` : ''}</td>
+                    <td data-label="Idioma">{displayValue(name.language)}</td>
+                    <td data-label="Preferido">{displayValue(name.preferred)}</td>
+                    <td data-label="País / área">{[name.country, name.area].filter(Boolean).join(' · ') || '—'}</td>
+                    <td data-label="Observações">{displayValue(name.remarks)}</td>
+                    <td data-label="ID da fonte">{displayValue(name.sourceId)}</td>
                   </tr>
                 ))}
               </tbody>
             </DataTable>
           </TableWrap>
-        ) : (
-          <Empty>Não há nomes vernaculares registrados para esta espécie na edição importada.</Empty>
-        )}
-      </Section>
-      <Section>
-        <SectionTitle>Nomes relacionados e sinônimos</SectionTitle>
-        {species.relatedNames.length > 0 ? (
+        </Section>
+      )}
+      {hasRelatedNames && (
+        <Section>
+          <SectionTitle>Nomes relacionados e sinônimos</SectionTitle>
           <TableWrap>
             <DataTable>
               <thead>
@@ -57,30 +61,28 @@ export function SpeciesNamesSection({ species }: SpeciesNamesSectionProps) {
               <tbody>
                 {species.relatedNames.map((name) => (
                   <tr key={name.id}>
-                    <td>
+                    <td data-label="Nome">
                       <em>{displayValue(name.scientificName)}</em>
                       {name.authorship ? ` ${name.authorship}` : ''}
                       {name.rank ? <div>{rankLabel(name.rank)}</div> : null}
                     </td>
-                    <td>{displayValue(name.relationType)}</td>
-                    <td>{name.direction === 'outgoing' ? 'Parte deste registro' : 'Apontado para este registro'}</td>
-                    <td>{displayValue(name.status)}</td>
-                    <td>{[name.referenceId, name.page].filter(Boolean).join(' · ') || '—'}</td>
-                    <td>
+                    <td data-label="Relação">{displayValue(name.relationType)}</td>
+                    <td data-label="Direção">{name.direction === 'outgoing' ? 'Parte deste registro' : 'Apontado para este registro'}</td>
+                    <td data-label="Status">{displayValue(name.status)}</td>
+                    <td data-label="Referência">{[name.referenceId, name.page].filter(Boolean).join(' · ') || '—'}</td>
+                    <td data-label="Observações / origem">
                       {[name.remarks, name.relationSourceId && `fonte: ${name.relationSourceId}`]
                         .filter(Boolean)
                         .join(' · ') || '—'}
                     </td>
-                    <td>{[name.externalId, name.sourceId].filter(Boolean).join(' · ')}</td>
+                    <td data-label="Identificadores">{[name.externalId, name.sourceId].filter(Boolean).join(' · ')}</td>
                   </tr>
                 ))}
               </tbody>
             </DataTable>
           </TableWrap>
-        ) : (
-          <Empty>O catálogo não relaciona outros nomes a este registro.</Empty>
-        )}
-      </Section>
+        </Section>
+      )}
     </>
   );
 }

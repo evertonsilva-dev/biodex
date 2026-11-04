@@ -1,19 +1,20 @@
-import { useSpeciesCard } from '../../hooks/useSpeciesCard';
-import type { SpeciesCardProps } from './types';
+import { useSpeciesCard } from "../../hooks/useSpeciesCard";
+import type { SpeciesCardProps } from "./types";
 import {
   Card,
   CardDetailsLink,
   Artwork,
   ArtworkImage,
   ArtworkFallback,
+  ArtworkMeta,
+  ArtLabel,
+  CardFooter,
   ImageCredit,
-  CardBody,
-  KingdomLabel,
   Name,
-  ScientificName,
   Taxonomy,
-  Description,
-} from './styles';
+  SpecimenInfo,
+  SideLabel,
+} from "./styles";
 
 export function SpeciesCard({ species }: SpeciesCardProps) {
   const {
@@ -29,12 +30,20 @@ export function SpeciesCard({ species }: SpeciesCardProps) {
     representativeTaxonName,
     representativeRankLabel,
   } = useSpeciesCard(species);
+  const primaryTaxon = species.taxon?.taxonomy?.find(({ rank }) =>
+    ["order", "class", "family"].includes(rank.toLowerCase()),
+  );
+  const classification = [species.kingdom?.name, primaryTaxon?.name]
+    .filter(Boolean)
+    .join(" · ");
+  const documentCode = species.documentId.slice(-8).toUpperCase();
 
   return (
     <Card $kingdomColor={kingdomColor}>
       <Artwork
         ref={artworkRef}
         $kingdomColor={kingdomColor}
+        $hasImage={Boolean(image && !imageFailed)}
       >
         {image && !imageFailed ? (
           <ArtworkImage
@@ -49,30 +58,37 @@ export function SpeciesCard({ species }: SpeciesCardProps) {
             {imageQueryError && <small>Não foi possível buscar a imagem</small>}
           </ArtworkFallback>
         )}
-        {imageCredit && !imageFailed && (
-          <ImageCredit
-            href={imageCredit.referenceUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={`${imageCredit.attribution} · ${imageCredit.license} · ${imageCredit.source}`}
+        <ArtworkMeta>
+          <ArtLabel>{primaryTaxon?.name ?? "BIODIVERSIDADE"}</ArtLabel>
+          <ArtLabel>{documentCode}</ArtLabel>
+        </ArtworkMeta>
+        <SideLabel title={species.commonName}>{species.commonName}</SideLabel>
+        <SpecimenInfo>
+          <Taxonomy
+            aria-label={`Classificação taxonômica: ${classification || taxonomy}`}
           >
-            {imageCredit.isRepresentative
-              ? `Imagem representativa: ${representativeRankLabel} ${representativeTaxonName ?? species.scientificName}`
-              : 'Imagem da espécie'}
-            : {imageCredit.attribution} · {imageCredit.license} · {imageCredit.source}
-          </ImageCredit>
-        )}
+            {classification || taxonomy}
+          </Taxonomy>
+          <CardFooter>
+            <Name>{species.scientificName}</Name>
+            {/* <CardTag>ESPÉCIE</CardTag> */}
+          </CardFooter>
+          {imageCredit && !imageFailed && (
+            <ImageCredit
+              href={imageCredit.referenceUrl}
+              target="_blank"
+              rel="noreferrer"
+              title={`${imageCredit.attribution} · ${imageCredit.license} · ${imageCredit.source}`}
+            >
+              {imageCredit.isRepresentative
+                ? `Imagem representativa: ${representativeRankLabel} ${representativeTaxonName ?? species.scientificName}`
+                : "Imagem da espécie"}
+              : {imageCredit.attribution} · {imageCredit.license} ·{" "}
+              {imageCredit.source}
+            </ImageCredit>
+          )}
+        </SpecimenInfo>
       </Artwork>
-      <CardBody>
-        <KingdomLabel $kingdomColor={kingdomColor}>
-          <span aria-hidden="true">●</span>
-          {species.kingdom?.name ?? 'Reino não informado'}
-        </KingdomLabel>
-        <Name>{species.commonName}</Name>
-        <ScientificName>{species.scientificName}</ScientificName>
-        {taxonomy && <Taxonomy aria-label={`Classificação taxonômica: ${taxonomy}`}>{taxonomy}</Taxonomy>}
-        {species.description && <Description>{species.description}</Description>}
-      </CardBody>
       <CardDetailsLink
         $kingdomColor={kingdomColor}
         href={`/species/${encodeURIComponent(species.documentId)}${window.location.search}`}

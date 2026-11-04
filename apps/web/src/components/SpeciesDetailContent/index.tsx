@@ -40,15 +40,15 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
     galleryKey,
     imageCredit,
     enrichmentQuery,
-    retryEnrichment,
     hasMediaSidebar,
+    refreshEnrichment,
     onImageError,
   } = useSpeciesDetails(species);
   const dataset = species.dataset;
 
   return (
     <>
-      <BackLink href={`/${window.location.search}`}>
+      <BackLink href={`/catalog${window.location.search}`}>
         ← Voltar ao catálogo
       </BackLink>
       <Hero $hasImage={Boolean(selectedPhoto)}>
@@ -115,24 +115,18 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
       </Hero>
 
       <Content $hasSidebar={hasMediaSidebar}>
-        {hasMediaSidebar && (
-          <SidebarColumn aria-label="Mapa e áudio da espécie">
-            <SpeciesMediaSidebar
-              enrichment={enrichmentQuery.data?.data}
-              isLoading={enrichmentQuery.isLoading}
-              onRetry={retryEnrichment}
-            />
-          </SidebarColumn>
-        )}
-        <MainColumn>
+        <SidebarColumn aria-label="Mapa e áudio da espécie">
+          <SpeciesMediaSidebar
+            enrichment={enrichmentQuery.data?.data}
+            hasError={enrichmentQuery.isError}
+            isFetching={enrichmentQuery.isFetching}
+            onRefresh={() => { void refreshEnrichment(); }}
+          />
+        </SidebarColumn>
+        <MainColumn $hasSidebar={hasMediaSidebar}>
           <SpeciesClassificationSection species={species} />
           <SpeciesEcologySection species={species} />
-          <SpeciesSupplementalData
-            enrichment={enrichmentQuery.data?.data}
-            isLoading={enrichmentQuery.isLoading}
-            hasError={enrichmentQuery.isError}
-            onRetry={() => void enrichmentQuery.refetch()}
-          />
+          <SpeciesSupplementalData enrichment={enrichmentQuery.data?.data} />
           <SketchfabModels species={species} />
           <SpeciesNamesSection species={species} />
           <SpeciesSourceSection dataset={dataset} />

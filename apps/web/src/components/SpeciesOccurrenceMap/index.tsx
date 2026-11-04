@@ -4,24 +4,19 @@ import {
   ZoomControl,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapFrame, MapNotice } from './styles';
+import { MapFrame } from './styles';
 import type { SpeciesOccurrenceMapProps } from './types';
 
-export function SpeciesOccurrenceMap({ taxonKey, occurrenceCount }: SpeciesOccurrenceMapProps) {
+export function SpeciesOccurrenceMap({
+  taxonKey,
+  occurrenceCount,
+}: SpeciesOccurrenceMapProps) {
   if (occurrenceCount === null) {
-    return (
-      <MapNotice>
-        Não foi possível obter a contagem de ocorrências para exibir o mapa.
-      </MapNotice>
-    );
+    return null;
   }
 
   if (occurrenceCount === 0) {
-    return (
-      <MapNotice>
-        O GBIF não encontrou registros de ocorrência para esta espécie.
-      </MapNotice>
-    );
+    return null;
   }
 
   return (

@@ -6,19 +6,21 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": {
-    "enabled": true
+    "enabled": true,
   },
+  "previews": {},
+
   "assets": {
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/health"]
+    "run_worker_first": ["/api/*", "/health"],
   },
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "afcb7acd488d4528b8d8d65ed6dedc14"
-    }
+      "id": "afcb7acd488d4528b8d8d65ed6dedc14",
+    },
   ],
   "vars": {
-    "CORS_ORIGINS": ""
-  }
+    "CORS_ORIGINS": "",
+  },
 }

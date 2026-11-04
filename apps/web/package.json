@@ -9,6 +9,7 @@
     "dev:worker": "wrangler dev --config dist/worker/wrangler.json --ip 127.0.0.1 --port 8787",
     "build": "wrangler types && tsc -p tsconfig.worker.json && tsc -b && vite build",
     "preview": "vite preview",
+    "preview:cloudflare": "wrangler preview --config dist/worker/wrangler.json",
     "deploy": "wrangler deploy"
   },
   "dependencies": {

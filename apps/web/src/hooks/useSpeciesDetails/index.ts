@@ -1,4 +1,4 @@
-import { useEffect, useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { GalleryItem } from 'react-image-gallery';
 import { apiOrigin } from '../../api/client';
@@ -10,13 +10,7 @@ import type { SpeciesDetailPhoto } from './types';
 export function useSpeciesDetails(species: SpeciesDetail) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
-  const [enrichmentRefresh, setEnrichmentRefresh] = useState({
-    speciesId: species.documentId,
-    revision: 0,
-  });
-  const enrichmentRefreshRevision = enrichmentRefresh.speciesId === species.documentId
-    ? enrichmentRefresh.revision
-    : 0;
+  const forceEnrichmentRefresh = useRef(false);
   const imageQuery = useQuery({
     queryKey: ['species-image', species.scientificName, 'detail-gallery-v1'],
     queryFn: ({ signal }) => getSpeciesImage(species.scientificName, signal, true),
@@ -27,13 +21,13 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     retry: false,
   });
   const enrichmentQuery = useQuery({
-    queryKey: ['species-enrichment', species.documentId, enrichmentRefreshRevision],
+    queryKey: ['species-enrichment', species.documentId],
     queryFn: ({ signal }) => getSpeciesEnrichment(
       species.documentId,
       signal,
-      enrichmentRefreshRevision > 0,
+      forceEnrichmentRefresh.current,
     ),
-    staleTime: 24 * 60 * 60 * 1000,
+    staleTime: 60 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
   });
@@ -104,21 +98,20 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   };
 
   const gbifEnrichment = enrichmentQuery.data?.data.gbif;
-  const hasGbifErrors = enrichmentQuery.data?.data.errors.includes('GBIF') ?? false;
-  const hasMediaSidebar = enrichmentQuery.isLoading
-    || hasGbifErrors
-    || (gbifEnrichment !== null
-      && gbifEnrichment !== undefined
-      && (gbifEnrichment.sourceErrors.length > 0
-        || (gbifEnrichment.occurrenceCount ?? 0) > 0
-        || gbifEnrichment.sounds.length > 0));
-  const retryEnrichment = () => {
-    setEnrichmentRefresh((current) => ({
-      speciesId: species.documentId,
-      revision: current.speciesId === species.documentId
-        ? current.revision + 1
-        : 1,
-    }));
+  const hasEnrichmentWarning = enrichmentQuery.isError
+    || Boolean(enrichmentQuery.data?.data.errors.length);
+  const hasMediaSidebar = Boolean(
+    hasEnrichmentWarning
+      || (gbifEnrichment
+        && ((gbifEnrichment.occurrenceCount ?? 0) > 0 || gbifEnrichment.sounds.length > 0)),
+  );
+  const refreshEnrichment = async () => {
+    forceEnrichmentRefresh.current = true;
+    try {
+      await enrichmentQuery.refetch();
+    } finally {
+      forceEnrichmentRefresh.current = false;
+    }
   };
 
   return {
@@ -130,8 +123,8 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     galleryKey,
     imageCredit,
     enrichmentQuery,
-    retryEnrichment,
     hasMediaSidebar,
+    refreshEnrichment,
     onImageError,
   };
 }

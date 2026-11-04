@@ -9,6 +9,10 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 - **Dados:** o catálogo taxonômico e os caches ficam em tabelas PostgreSQL; o navegador acessa a API e fontes públicas de mídia, sem receber credenciais do banco.
 - **Modelos 3D:** a ficha da espécie busca modelos públicos pela API do Sketchfab e incorpora o viewer oficial. Resultados que mencionam o nome científico são priorizados; se não houver correspondência, tenta-se o nome comum. A identificação não é garantida; cada modelo mantém a atribuição e a licença exibidas pelo Sketchfab.
 
+## Navegação
+
+A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo.
+
 ## Estrutura
 
 ```text
@@ -84,6 +88,8 @@ O deploy usa um único Cloudflare Worker para servir o frontend React/Vite como 
    ```
 
 4. O endpoint `/health` valida a conexão e as tabelas necessárias do catálogo. Se retornar `503`, aplique antes o schema de cache e importe os dados do catálogo.
+
+Para criar um Preview pelo Cloudflare Workers Builds, mantenha o build como `npm run build --workspace @biodex/web -- --mode cloudflare` e use `npm run preview:cloudflare` como comando de deploy. O script usa `apps/web/dist/worker/wrangler.json`, gerado pelo plugin Vite: além do bloco `previews`, ele contém o `assets.directory` que o build calcula e que o comando Preview exige. Não execute `npx wrangler preview` com o `wrangler.jsonc` fonte, pois esse arquivo não contém o caminho dos assets compilados. Configure bindings de Preview somente para recursos de staging/teste.
 
 Para desenvolver localmente com o Worker e Hyperdrive, defina `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` no ambiente com uma conexão PostgreSQL direta e execute `npm run dev:cloudflare`. Essa variável é local e não deve ser compartilhada ou versionada. Use um banco local ou um branch de desenvolvimento, pois o modo local conecta diretamente ao banco; o pool otimizado do Hyperdrive só é usado no Worker publicado.
 

@@ -6,42 +6,55 @@ export const Page = styled.main<{ $kingdomColor: string }>`
   --kingdom-edge: ${({ $kingdomColor }) => `${$kingdomColor}18`};
   --kingdom-shadow: ${({ $kingdomColor }) => `${$kingdomColor}16`};
 
-  width: min(1120px, calc(100% - 3rem));
+  width: min(1240px, calc(100% - 4rem));
   margin: 0 auto;
-  padding: 1.5rem 0 5rem;
+  padding: 1.5rem 0 6rem;
 
-  @media (max-width: 600px) {
-    width: min(100% - 2rem, 1120px);
+  @media (max-width: 700px) {
+    width: min(100% - 2rem, 1240px);
   }
 `;
 
 export const BackLink = styled.a`
   display: inline-flex;
-  margin: 1.5rem 0;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
   color: var(--kingdom-color);
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
+  margin-top: 10px;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
 `;
 
 export const Hero = styled.section<{ $hasImage: boolean }>`
   display: grid;
   grid-template-columns: ${({ $hasImage }) =>
-    $hasImage ? "minmax(260px, 0.9fr) 1.1fr" : "1fr"};
+    $hasImage ? "minmax(0, .95fr) minmax(0, 1.05fr)" : "1fr"};
+  min-height: ${({ $hasImage }) => ($hasImage ? "420px" : "300px")};
   overflow: hidden;
-  border: 1px solid var(--kingdom-edge);
-  border-radius: 20px;
-  background: ${({ theme }) => theme.colors.paper};
-  box-shadow:
-    0 12px 32px var(--kingdom-shadow),
-    0 2px 6px #202b2608;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  /* border: 1px solid #fff9; */
+  /* border-radius: 24px; */
+  /* background:
+    radial-gradient(ellipse at 92% 8%, var(--kingdom-tint), transparent 46%),
+    ${({ theme }) => theme.colors.paper}; */
+  /* background: ${({ theme }) => theme.colors.paper}; */
 
-  @media (max-width: 700px) {
+  /* box-shadow:
+    0 20px 55px var(--kingdom-shadow),
+    0 2px 8px #202b260a; */
+
+  @media (max-width: 760px) {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 `;
 
@@ -49,15 +62,18 @@ export const Artwork = styled.div`
   min-width: 0;
   overflow: hidden;
   border-radius: 12px;
-  background: var(--kingdom-tint);
+  /* background: ${({ theme }) => theme.colors.paper}; */
 `;
 
 export const ArtworkColumn = styled.div`
-  display: grid;
+  display: flex;
   min-width: 0;
-  align-content: start;
-  gap: 0.65rem;
-  padding: 0.75rem;
+  align-items: stretch;
+  padding: 0.8rem 0 0.8rem 0.8rem;
+
+  @media (max-width: 760px) {
+    padding: 0.7rem 0.7rem 0;
+  }
 `;
 
 export const GalleryFrame = styled.div`
@@ -74,8 +90,8 @@ export const GalleryFrame = styled.div`
 
   .image-gallery-slide .image-gallery-image {
     width: 100%;
-    height: 340px;
-    max-height: 340px;
+    height: 390px;
+    max-height: 390px;
     object-fit: cover;
     background: var(--kingdom-tint);
   }
@@ -106,6 +122,12 @@ export const GalleryFrame = styled.div`
     object-fit: cover;
   }
 
+  .image-gallery-slide-wrapper {
+    overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(145deg, var(--kingdom-tint), #17231b);
+  }
+
   .image-gallery-icon {
     filter: drop-shadow(0 1px 5px #0008);
   }
@@ -115,46 +137,72 @@ export const GalleryFrame = styled.div`
     background: var(--ig-background-overlay);
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 760px) {
     .image-gallery-slide .image-gallery-image {
-      height: 300px;
-      max-height: 300px;
+      height: min(70vw, 390px);
+      max-height: min(70vw, 390px);
+      object-fit: cover;
     }
 
     .image-gallery-thumbnail .image-gallery-thumbnail-image {
-      height: 48px;
+      height: 52px;
     }
   }
 `;
 
 export const HeroInfo = styled.div`
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
   align-self: center;
-  padding: clamp(1.5rem, 5vw, 3.5rem);
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 4.5rem);
+
+  @media (max-width: 760px) {
+    padding: 1.8rem 1.5rem 2rem;
+  }
 `;
 
 export const Eyebrow = styled.p`
-  margin: 0 0 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
   color: var(--kingdom-color);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+
+  &::before {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--kingdom-color);
+    box-shadow: 0 0 0 4px var(--kingdom-tint);
+    content: "";
+  }
 `;
 
 export const CommonName = styled.h1`
+  max-width: 12ch;
   margin: 0;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: clamp(2.2rem, 5vw, 4rem);
-  letter-spacing: -0.06em;
-  line-height: 1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.7rem, 5.2vw, 5rem);
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  line-height: 0.96;
+  overflow-wrap: anywhere;
 `;
 
 export const ScientificName = styled.p`
-  margin: 0.8rem 0 0;
+  margin: 1rem 0 0;
   color: ${({ theme }) => theme.colors.muted};
   font-family: Georgia, serif;
-  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
   font-style: italic;
+  overflow-wrap: anywhere;
 `;
 
 export const Authorship = styled.p`
@@ -167,7 +215,7 @@ export const Badges = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
 `;
 
 export const Badge = styled.span`
@@ -180,10 +228,16 @@ export const Badge = styled.span`
 `;
 
 export const RepresentativeNote = styled.p`
-  margin: 0.85rem 0 0;
+  margin: 1rem 0 0;
   color: ${({ theme }) => theme.colors.muted};
-  font-size: 0.75rem;
-  line-height: 1.45;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  a {
+    color: var(--kingdom-color);
+    text-decoration: none;
+    font-weight: 700;
+  }
 `;
 
 export const Content = styled.div<{ $hasSidebar: boolean }>`
@@ -192,9 +246,11 @@ export const Content = styled.div<{ $hasSidebar: boolean }>`
     $hasSidebar ? '"main sidebar"' : '"main"'};
   grid-template-columns: ${({ $hasSidebar }) =>
     $hasSidebar ? "minmax(0, 1fr) minmax(280px, 340px)" : "minmax(0, 1fr)"};
+  width: 100%;
+  min-width: 0;
   align-items: start;
-  gap: 1.25rem;
-  margin-top: 2rem;
+  gap: ${({ $hasSidebar }) => ($hasSidebar ? "1rem" : "0")};
+  margin-top: 1.4rem;
 
   @media (max-width: 820px) {
     grid-template-areas: ${({ $hasSidebar }) =>
@@ -203,34 +259,47 @@ export const Content = styled.div<{ $hasSidebar: boolean }>`
   }
 `;
 
-export const MainColumn = styled.div`
+export const MainColumn = styled.div<{ $hasSidebar: boolean }>`
   display: grid;
   grid-area: main;
+  grid-column: ${({ $hasSidebar }) => ($hasSidebar ? "1" : "1 / -1")};
+  width: 100%;
   min-width: 0;
-  gap: 1.25rem;
+  gap: 1rem;
 `;
 
 export const SidebarColumn = styled.aside`
   display: grid;
   grid-area: sidebar;
   min-width: 0;
-  gap: 1.25rem;
+  gap: 1rem;
+  @media (min-width: 821px) {
+    border-left: 1px solid ${({ theme }) => theme.colors.line};
+  }
 `;
 
 export const Section = styled.section`
-  padding: clamp(1.2rem, 3vw, 1.8rem);
-  border: 1px solid var(--kingdom-edge);
-  border-radius: 16px;
-  background: ${({ theme }) => theme.colors.paper};
-  box-shadow:
-    0 5px 20px var(--kingdom-shadow),
-    0 1px 3px #202b2608;
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 1.9rem);
+  &:not(:last-child) {
+    border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  }
+  /* border: 1px solid var(--kingdom-edge); */
+  /* border-radius: 19px; */
+  /* background: ${({ theme }) => theme.colors.paper}; */
+  /* box-shadow:
+    0 8px 26px var(--kingdom-shadow),
+    0 1px 3px #202b2608; */
 `;
 
 export const SectionTitle = styled.h2`
-  margin: 0 0 1rem;
-  font-family: ${({ theme }) => theme.fonts.display};
-  font-size: 1.25rem;
+  margin: 0 0 1.2rem;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--kingdom-color);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
 `;
 
 export const FactGrid = styled.dl`
@@ -256,6 +325,11 @@ export const Fact = styled.div`
     margin: 0;
     font-size: 0.92rem;
     line-height: 1.5;
+  }
+  a {
+    color: var(--kingdom-color);
+    text-decoration: none;
+    font-weight: 700;
   }
 `;
 
@@ -352,12 +426,15 @@ export const LineageItem = styled.li<{ $isCurrent: boolean }>`
 
 export const TableWrap = styled.div`
   overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 `;
 
 export const DataTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  table-layout: auto;
 
   th,
   td {
@@ -379,6 +456,54 @@ export const DataTable = styled.table`
 
   em {
     font-family: Georgia, serif;
+  }
+
+  @media (max-width: 640px) {
+    display: block;
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      clip-path: inset(50%);
+    }
+
+    tbody {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    tr {
+      display: grid;
+      overflow: hidden;
+      border: 1px solid ${({ theme }) => theme.colors.line};
+      border-radius: 10px;
+      background: ${({ theme }) => theme.colors.paper};
+    }
+
+    td {
+      display: grid;
+      grid-template-columns: minmax(6.5rem, 0.38fr) minmax(0, 1fr);
+      gap: 0.65rem;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+      overflow-wrap: anywhere;
+    }
+
+    td:last-child {
+      border-bottom: 0;
+    }
+
+    td::before {
+      color: ${({ theme }) => theme.colors.muted};
+      content: attr(data-label);
+      font-size: 0.66rem;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
   }
 `;
 
@@ -423,9 +548,11 @@ export const SoundItem = styled.div`
   gap: 0.75rem;
   min-width: 0;
   padding: 0.9rem;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: 12px;
-  background: var(--kingdom-tint);
+  &:not(:last-child) {
+    border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  }
+  /* border-radius: 12px;
+  background: var(--kingdom-tint); */
 `;
 
 export const WavePlayerLayout = styled.div`
@@ -513,10 +640,6 @@ export const SourceLink = styled.a`
   font-size: 0.84rem;
   font-weight: 700;
   text-decoration: none;
-
-  &:hover {
-    text-decoration: underline;
-  }
 `;
 
 export const RetryButton = styled.button`
