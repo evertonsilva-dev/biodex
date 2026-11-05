@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCatalogFacetOptions, getSpecies } from '../../api/species';
+import { getEnvironmentValues } from '../../utils/environment-label';
 import type {
-  CatalogFacetField,
   CatalogFacetOption,
+  TaxonomyFacetField,
 } from '../../types/species';
 import type { CatalogFilters, CatalogUrlState } from './types';
 
 const SEARCH_DEBOUNCE_MS = 400;
 export const MIN_SEARCH_LENGTH = 3;
-const taxonomyOrder: CatalogFacetField[] = [
+const taxonomyOrder: TaxonomyFacetField[] = [
   'kingdom',
   'phylum',
   'class',
@@ -27,9 +28,13 @@ function readCatalogUrl(): CatalogUrlState {
     order: params.get('order') ?? '',
     family: params.get('family') ?? '',
     genus: params.get('genus') ?? '',
-    extinct: params.get('extinct') === 'true' ? 'true' : '',
+    habitat: [...new Set(params.getAll('habitat').flatMap(getEnvironmentValues))],
+    source: params.get('source') ?? '',
+    extinct: params.get('extinct') === 'true' || params.get('extinct') === 'false'
+      ? params.get('extinct') ?? ''
+      : '',
   };
-  const ancestors: CatalogFacetField[] = ['kingdom', 'phylum', 'class', 'order', 'family'];
+  const ancestors: TaxonomyFacetField[] = ['kingdom', 'phylum', 'class', 'order', 'family'];
   for (let index = 0; index < ancestors.length; index += 1) {
     if (!filters[ancestors[index]]) {
       for (const descendant of taxonomyOrder.slice(index + 1)) {
@@ -39,6 +44,7 @@ function readCatalogUrl(): CatalogUrlState {
     }
   }
   const requestedPage = Number(params.get('page'));
+  const requestedSort = params.get('sort');
 
   return {
     search: params.get('search') ?? '',
@@ -46,6 +52,9 @@ function readCatalogUrl(): CatalogUrlState {
     page: Number.isSafeInteger(requestedPage) && requestedPage > 0 && requestedPage <= 1_000_000
       ? requestedPage
       : 1,
+    sort: requestedSort === 'scientific' || requestedSort === 'common'
+      ? requestedSort
+      : 'relevance',
   };
 }
 
@@ -53,12 +62,24 @@ function writeCatalogUrl(state: CatalogUrlState, mode: 'push' | 'replace'): void
   const url = new URL(window.location.href);
   const values: Record<string, string> = {
     search: state.search.trim(),
-    ...state.filters,
+    kingdom: state.filters.kingdom,
+    phylum: state.filters.phylum,
+    class: state.filters.class,
+    order: state.filters.order,
+    family: state.filters.family,
+    genus: state.filters.genus,
+    source: state.filters.source,
+    extinct: state.filters.extinct,
     page: state.page > 1 ? String(state.page) : '',
+    sort: state.sort === 'relevance' ? '' : state.sort,
   };
   for (const [key, value] of Object.entries(values)) {
     if (value) url.searchParams.set(key, value);
     else url.searchParams.delete(key);
+  }
+  url.searchParams.delete('habitat');
+  for (const habitat of state.filters.habitat) {
+    url.searchParams.append('habitat', habitat);
   }
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
@@ -69,7 +90,7 @@ function writeCatalogUrl(state: CatalogUrlState, mode: 'push' | 'replace'): void
 
 function resetDescendants(
   filters: CatalogFilters,
-  field: CatalogFacetField,
+  field: TaxonomyFacetField,
   value: string,
 ): CatalogFilters {
   const updated = { ...filters, [field]: value };
@@ -82,12 +103,13 @@ function resetDescendants(
 
 export function optionsWithSelected(
   options: CatalogFacetOption[],
-  selected: string,
+  selected: string | string[],
 ): CatalogFacetOption[] {
-  if (selected && !options.some((option) => option.value === selected)) {
-    return [{ value: selected, label: selected }, ...options];
-  }
-  return options;
+  const selectedValues = Array.isArray(selected) ? selected : [selected];
+  const missingOptions = selectedValues
+    .filter((value) => value && !options.some((option) => option.value === value))
+    .map((value) => ({ value, label: value }));
+  return [...missingOptions, ...options];
 }
 
 export function useCatalogPage() {
@@ -115,33 +137,41 @@ export function useCatalogPage() {
 
   const searchTerm = debouncedSearch.length >= MIN_SEARCH_LENGTH ? debouncedSearch : '';
   const kingdomOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'kingdom', filters.extinct],
+    queryKey: ['catalog-facet', 'kingdom', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('kingdom', filters, signal),
   });
   const phylumOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'phylum', filters.kingdom, filters.extinct],
+    queryKey: ['catalog-facet', 'phylum', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('phylum', filters, signal),
     enabled: Boolean(filters.kingdom),
   });
   const classOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'class', filters.kingdom, filters.phylum, filters.extinct],
+    queryKey: ['catalog-facet', 'class', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('class', filters, signal),
     enabled: Boolean(filters.phylum),
   });
   const orderOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'order', filters.kingdom, filters.phylum, filters.class, filters.extinct],
+    queryKey: ['catalog-facet', 'order', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('order', filters, signal),
     enabled: Boolean(filters.class),
   });
   const familyOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'family', filters.kingdom, filters.phylum, filters.class, filters.order, filters.extinct],
+    queryKey: ['catalog-facet', 'family', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('family', filters, signal),
     enabled: Boolean(filters.order),
   });
   const genusOptionsQuery = useQuery({
-    queryKey: ['catalog-facet', 'genus', filters.kingdom, filters.phylum, filters.class, filters.order, filters.family, filters.extinct],
+    queryKey: ['catalog-facet', 'genus', filters],
     queryFn: ({ signal }) => getCatalogFacetOptions('genus', filters, signal),
     enabled: Boolean(filters.family),
+  });
+  const habitatOptionsQuery = useQuery({
+    queryKey: ['catalog-facet', 'habitat', filters],
+    queryFn: ({ signal }) => getCatalogFacetOptions('habitat', filters, signal),
+  });
+  const sourceOptionsQuery = useQuery({
+    queryKey: ['catalog-facet', 'source', filters],
+    queryFn: ({ signal }) => getCatalogFacetOptions('source', filters, signal),
   });
   const facetQueries = [
     kingdomOptionsQuery,
@@ -150,10 +180,17 @@ export function useCatalogPage() {
     orderOptionsQuery,
     familyOptionsQuery,
     genusOptionsQuery,
+    habitatOptionsQuery,
+    sourceOptionsQuery,
   ];
   const speciesQuery = useQuery({
-    queryKey: ['species', searchTerm, filters, page],
-    queryFn: ({ signal }) => getSpecies({ ...filters, search: searchTerm, page }, signal),
+    queryKey: ['species', searchTerm, filters, page, catalogState.sort],
+    queryFn: ({ signal }) => getSpecies({
+      ...filters,
+      search: searchTerm,
+      page,
+      sort: catalogState.sort,
+    }, signal),
   });
 
   const retryCatalog = () => {
@@ -167,17 +204,31 @@ export function useCatalogPage() {
     writeCatalogUrl(nextState, mode);
     setCatalogState(nextState);
   };
-  const updateTaxonomyFilter = (field: CatalogFacetField, value: string) => {
+  const updateTaxonomyFilter = (field: TaxonomyFacetField, value: string) => {
     navigateToCatalogState({
       ...catalogState,
       filters: resetDescendants(filters, field, value),
       page: 1,
     }, 'push');
   };
-  const updateExtinctionFilter = (checked: boolean) => {
+  const updateExtinctionFilter = (value: string) => {
     navigateToCatalogState({
       ...catalogState,
-      filters: { ...filters, extinct: checked ? 'true' : '' },
+      filters: { ...filters, extinct: value },
+      page: 1,
+    }, 'push');
+  };
+  const updateHabitatFilter = (habitat: string[]) => {
+    navigateToCatalogState({
+      ...catalogState,
+      filters: { ...filters, habitat },
+      page: 1,
+    }, 'push');
+  };
+  const updateSourceFilter = (source: string) => {
+    navigateToCatalogState({
+      ...catalogState,
+      filters: { ...filters, source },
       page: 1,
     }, 'push');
   };
@@ -187,12 +238,51 @@ export function useCatalogPage() {
   const updatePage = (nextPage: number) => {
     navigateToCatalogState({ ...catalogState, page: nextPage }, 'push');
   };
+  const updateSort = (sort: CatalogUrlState['sort']) => {
+    navigateToCatalogState({ ...catalogState, sort, page: 1 }, 'push');
+  };
+  const clearFilters = () => {
+    navigateToCatalogState({
+      ...catalogState,
+      filters: {
+        kingdom: '',
+        phylum: '',
+        class: '',
+        order: '',
+        family: '',
+        genus: '',
+        habitat: [],
+        source: '',
+        extinct: '',
+      },
+      page: 1,
+    }, 'push');
+  };
+  const clearCatalog = () => {
+    navigateToCatalogState({
+      search: '',
+      filters: {
+        kingdom: '',
+        phylum: '',
+        class: '',
+        order: '',
+        family: '',
+        genus: '',
+        habitat: [],
+        source: '',
+        extinct: '',
+      },
+      page: 1,
+      sort: catalogState.sort,
+    }, 'push');
+  };
 
   return {
     catalogState,
     filters,
     search,
     page,
+    sort: catalogState.sort,
     searchTerm,
     kingdomOptionsQuery,
     phylumOptionsQuery,
@@ -200,13 +290,20 @@ export function useCatalogPage() {
     orderOptionsQuery,
     familyOptionsQuery,
     genusOptionsQuery,
+    habitatOptionsQuery,
+    sourceOptionsQuery,
     facetQueries,
     speciesQuery,
     retryCatalog,
     isRetryingCatalog,
     updateTaxonomyFilter,
     updateExtinctionFilter,
+    updateHabitatFilter,
+    updateSourceFilter,
     updateSearch,
     updatePage,
+    updateSort,
+    clearFilters,
+    clearCatalog,
   };
 }

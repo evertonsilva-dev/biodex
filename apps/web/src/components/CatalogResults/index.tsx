@@ -1,27 +1,83 @@
 import { SpeciesCard } from '../SpeciesCard';
 import { SpeciesCardSkeleton } from '../SpeciesCardSkeleton';
 import { Skeleton } from '../Skeleton';
+import { BiodexSelect } from '../BiodexSelect';
 import type { CatalogResultsProps } from './types';
-import { Grid, Notice, PageButton, Pagination, ResultCount, Results } from './styles';
+import {
+  ActiveFilterChip,
+  ActiveFilters,
+  ClearAllButton,
+  EmptyActions,
+  Grid,
+  Notice,
+  PageButton,
+  Pagination,
+  ResultCount,
+  Results,
+  ResultsToolbar,
+  SortLabel,
+} from './styles';
 
 export function CatalogResults({
   data,
+  activeFilters,
   isPending,
   isError,
   isRetrying,
   page,
+  sort,
   onRetry,
+  onClearAll,
   onPageChange,
+  onSortChange,
 }: CatalogResultsProps) {
   return (
     <Results>
-      <ResultCount>
-        {data
-          ? <><strong>{data.meta.pagination.total.toLocaleString('pt-BR')}</strong> espécies aceitas no catálogo</>
-          : isPending
-            ? <><Skeleton $width="3rem" $height="0.85rem" /> <Skeleton $width="12rem" $height="0.85rem" /></>
-            : null}
-      </ResultCount>
+      <ResultsToolbar>
+        <ResultCount aria-live="polite">
+          {data
+            ? <><strong>{data.meta.pagination.total.toLocaleString('pt-BR')}</strong> espécies encontradas</>
+            : isPending
+              ? <><Skeleton $width="3rem" $height="0.85rem" /> <Skeleton $width="12rem" $height="0.85rem" /></>
+              : null}
+        </ResultCount>
+        <SortLabel>
+          Ordenar por
+          <BiodexSelect
+            label="Ordenar por"
+            options={[
+              { value: 'relevance', label: 'Relevância' },
+              { value: 'scientific', label: 'Nome científico' },
+              { value: 'common', label: 'Nome popular' },
+            ]}
+            value={sort}
+            placeholder="Relevância"
+            isClearable={false}
+            onChange={(value) => {
+              if (value === 'relevance' || value === 'scientific' || value === 'common') {
+                onSortChange(value satisfies CatalogResultsProps['sort']);
+              }
+            }}
+          />
+        </SortLabel>
+      </ResultsToolbar>
+      {activeFilters.length > 0 && (
+        <ActiveFilters aria-label="Filtros ativos">
+          {activeFilters.map((filter) => (
+            <ActiveFilterChip
+              key={filter.id}
+              type="button"
+              aria-label={`Remover ${filter.label}`}
+              onClick={filter.onRemove}
+            >
+              {filter.label}
+            </ActiveFilterChip>
+          ))}
+          <ClearAllButton type="button" onClick={onClearAll}>
+            Limpar tudo
+          </ClearAllButton>
+        </ActiveFilters>
+      )}
       {isPending && !data && (
         <Grid role="status" aria-label="Carregando espécies do catálogo">
           {Array.from({ length: 8 }, (_, index) => (
@@ -39,7 +95,12 @@ export function CatalogResults({
       )}
       {data && data.data.length === 0 && (
         <Notice>
-          Não há espécies para este filtro. Confira os filtros ou importe o catálogo do Catalogue of Life.
+          Não encontramos espécies com essa busca e combinação de filtros. Tente outro termo ou ajuste os filtros.
+          <EmptyActions>
+            <PageButton type="button" onClick={onClearAll}>
+              Limpar busca e filtros
+            </PageButton>
+          </EmptyActions>
         </Notice>
       )}
       {data && data.data.length > 0 && (

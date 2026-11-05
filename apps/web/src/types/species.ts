@@ -86,7 +86,7 @@ export interface CatalogDataset {
   importedAt: string;
 }
 
-export interface SpeciesDetail extends Omit<Species, 'extinct'> {
+export interface SpeciesDetail extends Omit<Species, "extinct"> {
   authorship: string | null;
   status: string | null;
   sourceId: string | null;
@@ -170,7 +170,14 @@ export interface KingdomsResponse {
   data: Kingdom[];
 }
 
-export type CatalogFacetField = 'kingdom' | 'phylum' | 'class' | 'order' | 'family' | 'genus';
+export type TaxonomyFacetField =
+  | "kingdom"
+  | "phylum"
+  | "class"
+  | "order"
+  | "family"
+  | "genus";
+export type CatalogFacetField = TaxonomyFacetField | "habitat" | "source";
 
 export interface CatalogFacetOption {
   value: string;
@@ -179,4 +186,16 @@ export interface CatalogFacetOption {
 
 export interface CatalogFacetResponse {
   data: CatalogFacetOption[];
+}
+
+export interface SearchSuggestion {
+  id: string;
+  label: string;
+  scientificName: string;
+  kind: "common" | "scientific" | "synonym";
+  kingdomColor: string | null;
+}
+
+export interface SearchSuggestionsResponse {
+  data: SearchSuggestion[];
 }

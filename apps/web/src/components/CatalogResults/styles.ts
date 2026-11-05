@@ -4,16 +4,98 @@ export const Results = styled.section`
   min-width: 0;
 `;
 
-export const ResultCount = styled.p`
+export const ResultsToolbar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+`;
+
+export const ResultCount = styled.div`
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin: 0 0 0.9rem;
+  margin: 0;
   color: ${({ theme }) => theme.colors.muted};
   font-size: 0.82rem;
 
   strong {
     color: ${({ theme }) => theme.colors.ink};
+  }
+`;
+
+export const ActiveFilters = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+`;
+
+export const ActiveFilterChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid color-mix(in srgb, ${({ theme }) => theme.colors.green} 22%, ${({ theme }) => theme.colors.paper});
+  border-radius: 999px;
+  background: color-mix(in srgb, ${({ theme }) => theme.colors.green} 10%, ${({ theme }) => theme.colors.paper});
+  color: ${({ theme }) => theme.colors.green};
+  font: inherit;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  text-align: left;
+  cursor: pointer;
+
+  &::after {
+    content: '×';
+    color: ${({ theme }) => theme.colors.green};
+    font-size: 1rem;
+    line-height: 0.8;
+  }
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.green};
+    background: color-mix(in srgb, ${({ theme }) => theme.colors.green} 16%, ${({ theme }) => theme.colors.paper});
+  }
+`;
+
+export const ClearAllButton = styled.button`
+  padding: 0.35rem 0.2rem;
+  border: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.green};
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+export const SortLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 0.78rem;
+  font-weight: 700;
+
+  > div {
+    width: 12rem;
+  }
+
+  @media (max-width: 600px) {
+    width: 100%;
+
+    > div {
+      flex: 1;
+    }
   }
 `;
 
@@ -49,9 +131,26 @@ export const PageButton = styled.button`
 
 export const Notice = styled.div<{ $error?: boolean }>`
   padding: 1.5rem;
-  border: 1px solid ${({ $error, theme }) => ($error ? '#d27d65' : theme.colors.line)};
+  border: 1px solid ${({ $error, theme }) => ($error ? '#d27d6566' : theme.colors.line)};
   border-radius: 14px;
-  background: ${({ theme }) => theme.colors.paper};
-  color: ${({ theme }) => theme.colors.ink};
+  background: ${({ $error }) => ($error ? "rgba(210, 125, 101, 0.08)" : "var(--kingdom-tint, rgba(62, 117, 87, 0.08))")};
+  color: ${({ $error, theme }) => ($error ? "#8B5A47" : theme.colors.ink)};
   line-height: 1.6;
+  
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
+  &::before {
+    content: ${({ $error }) => $error ? "'⚠'" : "'ℹ'"};
+    font-size: 1.5rem;
+    line-height: 1;
+    ${({ $error }) => !$error && `opacity: 0.6;`}
+  }
+`;
+
+export const EmptyActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 `;

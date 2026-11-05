@@ -1,5 +1,5 @@
 import type { TopBarProps } from './types';
-import { Header, Label, Logo } from './styles';
+import { Header, HeaderNav, HeaderNavLink, Label, Logo } from './styles';
 
 export function TopBar({ label, kingdomColor }: TopBarProps) {
   return (
@@ -7,7 +7,11 @@ export function TopBar({ label, kingdomColor }: TopBarProps) {
       <Logo href="/" aria-label="Biodex, início">
         bio<span>dex</span>
       </Logo>
-      <Label>{label}</Label>
+      <HeaderNav aria-label="Navegação principal">
+        <Label>{label}</Label>
+        {' · '}
+        <HeaderNavLink href="/collections">Coleções</HeaderNavLink>
+      </HeaderNav>
     </Header>
   );
 }

@@ -8,6 +8,7 @@ import { SpeciesNamesSection } from "../SpeciesNamesSection";
 import { SpeciesSourceSection } from "../SpeciesSourceSection";
 import { SketchfabModels } from "../SketchfabModels";
 import { useSpeciesDetails } from "../../hooks/useSpeciesDetails";
+import { SaveSpeciesButton } from "../SaveSpeciesButton";
 import { rankLabel } from "../../utils/species-detail-formatters";
 import type { SpeciesDetailContentProps } from "./types";
 import {
@@ -85,6 +86,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           <CommonName>{species.commonName}</CommonName>
           <ScientificName>{species.scientificName}</ScientificName>
           {species.authorship && <Authorship>{species.authorship}</Authorship>}
+          <SaveSpeciesButton species={species} variant="detail" />
           <Badges>
             {species.extinct === true && <Badge>Extinta</Badge>}
             {species.kingdom?.isVirus && <Badge>Vírus</Badge>}
@@ -129,11 +131,16 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           <SpeciesSupplementalData enrichment={enrichmentQuery.data?.data} />
           <SketchfabModels species={species} />
           <SpeciesNamesSection species={species} />
-          <SpeciesSourceSection dataset={dataset} />
+          <SpeciesSourceSection
+            dataset={dataset}
+            dataSource={species.dataSource}
+            sourceId={species.sourceId}
+            sourceReference={species.sourceReference}
+          />
         </MainColumn>
       </Content>
       <Footer>
-        BIODEX · Dados taxonômicos fornecidos pelo Catalogue of Life.
+        BIODEX · Consulte a procedência indicada em cada ficha.
       </Footer>
     </>
   );

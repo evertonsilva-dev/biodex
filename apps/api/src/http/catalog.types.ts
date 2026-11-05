@@ -18,6 +18,7 @@ export type CatalogHandler = (context: CatalogRequestContext) => Promise<void>;
 
 export interface CatalogController {
   species: CatalogHandler;
+  suggestions: CatalogHandler;
   speciesDetails: CatalogHandler;
   speciesEnrichment: CatalogHandler;
   kingdoms: CatalogHandler;
@@ -27,6 +28,7 @@ export interface CatalogController {
 
 export interface CatalogHttpController {
   species: import('express').RequestHandler;
+  suggestions: import('express').RequestHandler;
   speciesDetails: import('express').RequestHandler;
   speciesEnrichment: import('express').RequestHandler;
   kingdoms: import('express').RequestHandler;

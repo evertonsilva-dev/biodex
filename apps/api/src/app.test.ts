@@ -2,6 +2,17 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createApp } from './app.js';
 
+const editorialCollection = {
+  id: 'editorial-1',
+  slug: 'gigantes-da-vida',
+  title: 'Gigantes da vida',
+  description: 'Espécies de grande porte.',
+  introduction: 'Quatro espécies de ambientes diferentes.',
+  featuredImageUrl: null,
+  speciesIds: ['KF8T'],
+  order: 1,
+};
+
 const app = createApp({
   catalog: {
     species: async (context) => {
@@ -9,6 +20,9 @@ const app = createApp({
         context.throw(400, 'Invalid test request.');
       }
       context.body = { data: [{ id: 'test-species' }] };
+    },
+    suggestions: async (context) => {
+      context.body = { data: [] };
     },
     speciesDetails: async (context) => {
       context.body = { data: { id: context.params.id } };
@@ -25,6 +39,10 @@ const app = createApp({
     image: async (context) => {
       context.body = { data: null };
     },
+  },
+  editorialCollections: {
+    getAll: async () => [editorialCollection],
+    getBySlug: async (slug) => slug === editorialCollection.slug ? editorialCollection : null,
   },
   healthCheck: async () => true,
   config: { corsOrigins: ['http://localhost:5173'] },
@@ -53,6 +71,30 @@ test('Express app preserves health, catalog, CORS, and error responses', async (
     assert.equal(catalog.status, 200);
     assert.equal(catalog.headers.get('access-control-allow-origin'), 'http://localhost:5173');
     assert.deepEqual(await catalog.json(), { data: [{ id: 'test-species' }] });
+
+    const suggestions = await fetch(`${baseUrl}/api/catalog/suggestions?q=one`);
+    assert.equal(suggestions.status, 200);
+    assert.deepEqual(await suggestions.json(), { data: [] });
+
+    const editorialCollections = await fetch(`${baseUrl}/api/editorial-collections`);
+    assert.equal(editorialCollections.status, 200);
+    assert.deepEqual(await editorialCollections.json(), { data: [editorialCollection] });
+
+    const editorialCollectionDetail = await fetch(
+      `${baseUrl}/api/editorial-collections/${editorialCollection.slug}`,
+    );
+    assert.equal(editorialCollectionDetail.status, 200);
+    assert.deepEqual(await editorialCollectionDetail.json(), { data: editorialCollection });
+
+    const missingEditorialCollection = await fetch(
+      `${baseUrl}/api/editorial-collections/nao-existe`,
+    );
+    assert.equal(missingEditorialCollection.status, 404);
+    assert.deepEqual((await missingEditorialCollection.json()).error, {
+      status: 404,
+      name: 'ApplicationError',
+      message: 'Coleção não encontrada.',
+    });
 
     const missing = await fetch(`${baseUrl}/api/unknown`);
     assert.equal(missing.status, 404);

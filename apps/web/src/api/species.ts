@@ -2,6 +2,7 @@ import { apiGet } from './client';
 import type {
   CatalogFacetField,
   CatalogFacetResponse,
+  SearchSuggestionsResponse,
   SpeciesDetailResponse,
   SpeciesResponse,
 } from '../types/species';
@@ -14,16 +15,20 @@ export interface SpeciesFilters {
   order: string;
   family: string;
   genus: string;
+  habitat: string[];
+  source: string;
   extinct: string;
   page: number;
+  sort: 'relevance' | 'scientific' | 'common';
 }
 
-export type CatalogFacetFilters = Omit<SpeciesFilters, 'search' | 'page'>;
+export type CatalogFacetFilters = Omit<SpeciesFilters, 'search' | 'page' | 'sort'>;
 
 export function getSpecies(filters: SpeciesFilters, signal?: AbortSignal) {
   const params = new URLSearchParams({
     page: String(filters.page),
     pageSize: '48',
+    sort: filters.sort,
   });
 
   if (filters.search.trim()) {
@@ -40,11 +45,31 @@ export function getSpecies(filters: SpeciesFilters, signal?: AbortSignal) {
     }
   }
 
+  for (const habitat of filters.habitat) {
+    params.append('habitat', habitat);
+  }
+  if (filters.source) {
+    params.set('source', filters.source);
+  }
+
   if (filters.extinct) {
     params.set('extinct', filters.extinct);
   }
 
   return apiGet<SpeciesResponse>(`/catalog/species?${params}`, signal);
+}
+
+export function getSpeciesByIds(ids: string[], signal?: AbortSignal) {
+  const params = new URLSearchParams({ page: '1', pageSize: '100', sort: 'scientific' });
+  for (const id of ids) {
+    params.append('ids', id);
+  }
+  return apiGet<SpeciesResponse>(`/catalog/species?${params}`, signal);
+}
+
+export function getSearchSuggestions(term: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ q: term });
+  return apiGet<SearchSuggestionsResponse>(`/catalog/suggestions?${params}`, signal);
 }
 
 export function getSpeciesDetails(externalId: string, signal?: AbortSignal) {
@@ -60,10 +85,21 @@ export function getCatalogFacetOptions(
   signal?: AbortSignal,
 ) {
   const params = new URLSearchParams({ field });
-  for (const name of ['kingdom', 'phylum', 'class', 'order', 'family', 'genus'] as const) {
+  for (const name of [
+    'kingdom',
+    'phylum',
+    'class',
+    'order',
+    'family',
+    'genus',
+    'source',
+  ] as const) {
     if (filters[name]) {
       params.set(name, filters[name]);
     }
+  }
+  for (const habitat of filters.habitat) {
+    params.append('habitat', habitat);
   }
   if (filters.extinct) {
     params.set('extinct', filters.extinct);

@@ -7,6 +7,7 @@ export function createCatalogRouter(catalog: CatalogController) {
   const controller = createCatalogHttpController(catalog);
 
   router.get('/species', controller.species);
+  router.get('/suggestions', controller.suggestions);
   router.get('/species/:id/enrichment', controller.speciesEnrichment);
   router.get('/species/:id', controller.speciesDetails);
   router.get('/kingdoms', controller.kingdoms);

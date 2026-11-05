@@ -11,7 +11,7 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 
 ## Navegação
 
-A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo.
+A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`, com sugestões de nomes populares, científicos e sinônimos enquanto você digita. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo. Em `/collections`, é possível criar coleções temáticas salvas localmente, adicionar espécies pelas cartas e compartilhar uma coleção por link. Coleções compartilhadas carregam até 100 espécies do catálogo e não exigem conta.
 
 ## Estrutura
 
@@ -178,9 +178,13 @@ Para espécies viventes de Animalia, a ficha também procura áudio nos registro
 
 A ViralZone é apresentada como uma fonte externa para vírus, sem copiar seu conteúdo: não foi encontrada uma API pública estável para integrar suas fichas automaticamente. As fontes podem não ter dados para todas as espécies e podem ficar temporariamente indisponíveis; isso não impede o carregamento da ficha principal.
 
+### Busca, filtros e ordenação
+
+A busca do catálogo aceita nomes científicos, nomes populares e nomes científicos relacionados por sinonímia no Catalogue of Life; termos com pelo menos três caracteres são necessários. Os resultados priorizam correspondências exatas e prefixos antes de correspondências parciais. É possível combinar a busca com filtros taxonômicos, ambientes e fonte do registro, além de filtrar espécies viventes ou extintas. Ambientes múltiplos são divididos em opções individuais; a seleção de mais de um ambiente inclui espécies que correspondam a qualquer um deles. A ordenação pode ser por relevância, nome científico ou nome popular, e a seleção pode ser compartilhada pela URL.
+
 Endpoints:
 
-- `GET /api/catalog/species?page=1&pageSize=48&search=...&kingdom=...&phylum=...&class=...&order=...&family=...&genus=...&extinct=true`
+- `GET /api/catalog/species?page=1&pageSize=48&search=...&sort=relevance&kingdom=...&phylum=...&class=...&order=...&family=...&genus=...&habitat=marine&habitat=freshwater&source=...&extinct=true`
 - `GET /api/catalog/species/:id` retorna o registro completo disponível de uma espécie aceita, incluindo sua ancestralidade taxonômica, autoria, informações sobre extinção e ambiente, nomes vernaculares, nomes e relações vinculados, identificadores das fontes e metadados da edição importada.
 - `GET /api/catalog/species/:id/enrichment` retorna descrições atribuídas às respectivas fontes e armazenadas em cache, informações de conservação e ocorrências, registros fósseis e, quando disponíveis, áudios licenciados de animais.
 - `GET /api/catalog/kingdoms`
