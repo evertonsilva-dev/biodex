@@ -10,6 +10,9 @@ const app = createApp({
       }
       context.body = { data: [{ id: 'test-species' }] };
     },
+    suggestions: async (context) => {
+      context.body = { data: [] };
+    },
     speciesDetails: async (context) => {
       context.body = { data: { id: context.params.id } };
     },
@@ -53,6 +56,10 @@ test('Express app preserves health, catalog, CORS, and error responses', async (
     assert.equal(catalog.status, 200);
     assert.equal(catalog.headers.get('access-control-allow-origin'), 'http://localhost:5173');
     assert.deepEqual(await catalog.json(), { data: [{ id: 'test-species' }] });
+
+    const suggestions = await fetch(`${baseUrl}/api/catalog/suggestions?q=one`);
+    assert.equal(suggestions.status, 200);
+    assert.deepEqual(await suggestions.json(), { data: [] });
 
     const missing = await fetch(`${baseUrl}/api/unknown`);
     assert.equal(missing.status, 404);

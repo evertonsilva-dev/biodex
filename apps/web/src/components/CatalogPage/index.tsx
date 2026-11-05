@@ -3,6 +3,7 @@
 import { useCatalogPage, optionsWithSelected, MIN_SEARCH_LENGTH } from '../../hooks/useCatalogPage';
 import type { TaxonomyFacetField } from '../../types/species';
 import { CatalogFilterPanel } from '../CatalogFilterPanel';
+import { CatalogSearch } from '../CatalogSearch';
 import { CatalogResults } from '../CatalogResults';
 import type { CatalogActiveFilter } from '../CatalogResults/types';
 import { TopBar } from '../TopBar';
@@ -16,7 +17,6 @@ import {
   Intro,
   SearchBar,
   CatalogLayout,
-  Search,
   SearchHint,
   Footer,
 } from './styles';
@@ -99,13 +99,7 @@ export function CatalogPage() {
         </Hero>
 
         <SearchBar aria-label="Busca no catálogo">
-          <Search
-            type="search"
-            placeholder="Nome popular, científico ou sinônimo"
-            aria-label="Buscar espécies por nome popular, científico ou sinônimo"
-            value={search}
-            onChange={(event) => updateSearch(event.target.value)}
-          />
+          <CatalogSearch value={search} minLength={MIN_SEARCH_LENGTH} onChange={updateSearch} />
           {search.trim().length > 0 && search.trim().length < MIN_SEARCH_LENGTH && (
             <SearchHint>Pesquise por nome popular, científico ou sinônimo. Mínimo de {MIN_SEARCH_LENGTH} caracteres.</SearchHint>
           )}

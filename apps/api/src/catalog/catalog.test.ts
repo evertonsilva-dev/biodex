@@ -122,6 +122,45 @@ test('catalog species reject unsupported sort values', async () => {
   );
 });
 
+test('catalog suggestions require at least three characters', async () => {
+  const controller = createCatalogController({ runtime: createRuntime(new CapturingDatabase(true)) });
+
+  await assert.rejects(
+    controller.suggestions(createContext({ q: 'ab' })),
+    (error: unknown) => error instanceof HttpError && error.status === 400,
+  );
+});
+
+test('catalog suggestions escape the prefix, dedupe labels, and cap results', async () => {
+  const database = new CapturingDatabase(true);
+  const baseQuery = database.query.bind(database);
+  database.query = (async (sql: string, bindings: unknown[] = []) => {
+    if (!sql.includes('s.matched_name')) return baseQuery(sql, bindings);
+    database.queries.push({ sql, bindings });
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      external_id: `id-${index}`,
+      scientific_name: `Genus species${index}`,
+      matched_name: index === 1 ? 'Onça' : `Onça ${index === 0 ? '' : index}`.trim(),
+      kind: 'common',
+      kingdom_slug: 'animalia',
+      color: '#c0392b',
+    }));
+    return { rows };
+  }) as typeof database.query;
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+  const context = createContext({ q: '50%_on' });
+
+  await controller.suggestions(context);
+
+  const suggestionQuery = database.queries.find((query) => query.sql.includes('s.matched_name'));
+  assert.match(suggestionQuery?.sql ?? '', /col_name_relation/);
+  assert.match(suggestionQuery?.sql ?? '', /col_vernacular_name/);
+  assert.deepEqual(suggestionQuery?.bindings, ['50\\%\\_on%']);
+  const data = (context.body as { data: Array<{ label: string }> }).data;
+  assert.equal(data.length, 8);
+  assert.equal(new Set(data.map((item) => item.label.toLowerCase())).size, data.length);
+});
+
 test('catalog extinction filter distinguishes living species from unknown status', async () => {
   const database = new CapturingDatabase(true);
   const controller = createCatalogController({ runtime: createRuntime(database) });
@@ -146,6 +185,26 @@ test('catalog filters can combine multiple habitats and data source', async () =
   assert.match(database.queries[1].sql, /= ANY\(\$1::text\[\]\)/);
   assert.match(database.queries[1].sql, /t\.data_source = \$2/);
   assert.deepEqual(database.queries[1].bindings, [['Forest', 'Freshwater'], 'Catalogue of Life']);
+});
+
+test('catalog species can be fetched by a bounded list of identifiers', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await controller.species(createContext({ ids: ['col:1', 'col:2'] }));
+
+  assert.match(database.queries[1].sql, /t\.external_id = ANY\(\$1::text\[\]\)/);
+  assert.deepEqual(database.queries[1].bindings, [['col:1', 'col:2']]);
+});
+
+test('catalog species reject too many shared-collection identifiers', async () => {
+  const database = new CapturingDatabase(true);
+  const controller = createCatalogController({ runtime: createRuntime(database) });
+
+  await assert.rejects(
+    controller.species(createContext({ ids: Array.from({ length: 101 }, (_, index) => `col:${index}`) })),
+    (error: unknown) => error instanceof HttpError && error.status === 400,
+  );
 });
 
 test('source facets respect selected habitats, taxonomy, and extinction filters', async () => {

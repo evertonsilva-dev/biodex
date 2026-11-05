@@ -27,3 +27,21 @@ export const Label = styled.span`
   color: ${({ theme }) => theme.colors.muted};
   font-size: 0.78rem;
 `;
+
+export const HeaderNav = styled.nav`
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  color: ${({ theme }) => theme.colors.line};
+`;
+
+export const HeaderNavLink = styled.a`
+  color: var(--kingdom-color);
+  font-size: .82rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: opacity 160ms ease;
+
+  &:hover { opacity: .72; }
+  &:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+`;

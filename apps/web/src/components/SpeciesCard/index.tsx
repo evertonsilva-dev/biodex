@@ -16,7 +16,7 @@ import {
   SideLabel,
 } from "./styles";
 
-export function SpeciesCard({ species }: SpeciesCardProps) {
+export function SpeciesCard({ species, preview = false }: SpeciesCardProps) {
   const {
     artworkRef,
     kingdomColor,
@@ -39,7 +39,7 @@ export function SpeciesCard({ species }: SpeciesCardProps) {
   const documentCode = species.documentId.slice(-8).toUpperCase();
 
   return (
-    <Card $kingdomColor={kingdomColor}>
+    <Card $kingdomColor={kingdomColor} $preview={preview}>
       <Artwork
         ref={artworkRef}
         $kingdomColor={kingdomColor}
@@ -89,12 +89,14 @@ export function SpeciesCard({ species }: SpeciesCardProps) {
           )}
         </SpecimenInfo>
       </Artwork>
-      <CardDetailsLink
-        $kingdomColor={kingdomColor}
-        href={`/species/${encodeURIComponent(species.documentId)}${window.location.search}`}
-        aria-label={`Ver detalhes de ${species.commonName} (${species.scientificName})`}
-        title={`Ver detalhes de ${species.commonName}`}
-      />
+      {!preview && (
+        <CardDetailsLink
+          $kingdomColor={kingdomColor}
+          href={`/species/${encodeURIComponent(species.documentId)}${window.location.search}`}
+          aria-label={`Ver detalhes de ${species.commonName} (${species.scientificName})`}
+          title={`Ver detalhes de ${species.commonName}`}
+        />
+      )}
     </Card>
   );
 }

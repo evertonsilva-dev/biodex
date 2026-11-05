@@ -46,6 +46,7 @@ function isTaxonomyLevel(value: string): value is TaxonomyLevel {
 
 const MAX_PAGE_SIZE = 100;
 const MAX_SEARCH_LENGTH = 100;
+const MAX_SUGGESTIONS = 8;
 const MAX_FILTER_LENGTH = 200;
 
 const FACET_COLUMNS: Record<TaxonomyLevel, string> = {
@@ -187,6 +188,7 @@ function createFilters(
   ctx: CatalogRequestContext,
 ): { where: string; bindings: unknown[]; searchTerm: string } {
   const filters = parseCatalogFilters(query, ctx);
+  const speciesIds = parseOptionalStringList(query, 'ids', 200, 100, ctx);
   const conditions = [
     "t.status = 'accepted'",
     "t.rank = 'species'",
@@ -207,6 +209,9 @@ function createFilters(
     if (filters[level]) {
       conditions.push(`${FACET_COLUMNS[level]} = ${bind(filters[level])}`);
     }
+  }
+  if (speciesIds.length) {
+    conditions.push(`t.external_id = ANY(${bind(speciesIds)}::text[])`);
   }
   if (filters.habitat.length) {
     conditions.push(environmentSelectionCondition('t.environment', bind(filters.habitat)));
@@ -466,6 +471,87 @@ export default function createCatalogController({ runtime }: { runtime: CatalogR
         },
       },
     };
+  },
+
+  async suggestions(ctx) {
+    await ensureCatalogReady(runtime, ctx);
+    const term = parseOptionalString(ctx.query, 'q', MAX_SEARCH_LENGTH, ctx);
+    if (!term || term.length < 3) {
+      ctx.throw(400, 'q must be at least 3 characters.');
+    }
+    const prefix = `${term.replace(/[\\%_]/g, '\\$&')}%`;
+    const result = await runtime.db.query<{
+      external_id: string;
+      scientific_name: string;
+      matched_name: string;
+      kind: 'common' | 'scientific' | 'synonym';
+      color: string | null;
+    }>(`
+      SELECT s.external_id, t.scientific_name, s.matched_name, s.kind, k.color
+      FROM (
+        (SELECT external_id, scientific_name AS matched_name, 'scientific' AS kind, 1 AS priority
+         FROM col_taxon_usage
+         WHERE status = 'accepted' AND rank = 'species'
+           AND is_catalog_species = true AND is_virus = false
+           AND scientific_name ILIKE $1 ESCAPE E'\\\\'
+         ORDER BY scientific_name
+         LIMIT 20)
+        UNION ALL
+        (SELECT vernacular.taxon_external_id, vernacular.name, 'common', 0
+         FROM col_vernacular_name vernacular
+         JOIN col_taxon_usage listed
+           ON listed.external_id = vernacular.taxon_external_id
+           AND listed.status = 'accepted' AND listed.rank = 'species'
+           AND listed.is_catalog_species = true AND listed.is_virus = false
+         WHERE vernacular.name ILIKE $1 ESCAPE E'\\\\'
+         ORDER BY CASE vernacular.language WHEN 'por' THEN 0 WHEN 'eng' THEN 1 ELSE 2 END, vernacular.name
+         LIMIT 60)
+        UNION ALL
+        (SELECT accepted.external_id, synonym.scientific_name, 'synonym', 2
+         FROM col_name_relation relation
+         JOIN col_taxon_usage accepted
+           ON accepted.external_id = relation.related_name_external_id
+           AND accepted.status = 'accepted' AND accepted.rank = 'species'
+           AND accepted.is_catalog_species = true AND accepted.is_virus = false
+         JOIN col_taxon_usage synonym
+           ON synonym.external_id = relation.name_external_id
+         WHERE synonym.scientific_name ILIKE $1 ESCAPE E'\\\\'
+         UNION ALL
+         SELECT accepted.external_id, synonym.scientific_name, 'synonym', 2
+         FROM col_name_relation relation
+         JOIN col_taxon_usage accepted
+           ON accepted.external_id = relation.name_external_id
+           AND accepted.status = 'accepted' AND accepted.rank = 'species'
+           AND accepted.is_catalog_species = true AND accepted.is_virus = false
+         JOIN col_taxon_usage synonym
+           ON synonym.external_id = relation.related_name_external_id
+         WHERE synonym.scientific_name ILIKE $1 ESCAPE E'\\\\'
+         LIMIT 60)
+      ) s
+      JOIN col_taxon_usage t ON t.external_id = s.external_id
+        AND t.status = 'accepted' AND t.rank = 'species'
+        AND t.is_catalog_species = true AND t.is_virus = false
+      LEFT JOIN col_kingdom k ON k.name = t.kingdom
+      ORDER BY s.priority, s.matched_name
+      LIMIT 140
+    `, [prefix]);
+
+    const seen = new Set<string>();
+    const data = [];
+    for (const row of result.rows) {
+      const key = row.matched_name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      data.push({
+        id: row.external_id,
+        label: row.matched_name.trim(),
+        scientificName: row.scientific_name,
+        kind: row.kind,
+        kingdomColor: row.color,
+      });
+      if (data.length === MAX_SUGGESTIONS) break;
+    }
+    ctx.body = { data };
   },
 
   async speciesDetails(ctx) {

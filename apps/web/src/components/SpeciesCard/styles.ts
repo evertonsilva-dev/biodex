@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-export const Card = styled.article<{ $kingdomColor: string }>`
+export const Card = styled.article<{ $kingdomColor: string; $preview?: boolean }>`
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -9,7 +9,7 @@ export const Card = styled.article<{ $kingdomColor: string }>`
   border-radius: 15px;
   background: #304b3b;
   box-shadow: 0 8px 22px ${({ $kingdomColor }) => `${$kingdomColor}18`}, 0 2px 6px #202b2610;
-  cursor: pointer;
+  cursor: ${({ $preview }) => $preview ? 'default' : 'pointer'};
   transition: transform 220ms ease, box-shadow 220ms ease;
 
   &:hover {

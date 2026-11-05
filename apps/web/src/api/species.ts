@@ -2,6 +2,7 @@ import { apiGet } from './client';
 import type {
   CatalogFacetField,
   CatalogFacetResponse,
+  SearchSuggestionsResponse,
   SpeciesDetailResponse,
   SpeciesResponse,
 } from '../types/species';
@@ -56,6 +57,19 @@ export function getSpecies(filters: SpeciesFilters, signal?: AbortSignal) {
   }
 
   return apiGet<SpeciesResponse>(`/catalog/species?${params}`, signal);
+}
+
+export function getSpeciesByIds(ids: string[], signal?: AbortSignal) {
+  const params = new URLSearchParams({ page: '1', pageSize: '100', sort: 'scientific' });
+  for (const id of ids) {
+    params.append('ids', id);
+  }
+  return apiGet<SpeciesResponse>(`/catalog/species?${params}`, signal);
+}
+
+export function getSearchSuggestions(term: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ q: term });
+  return apiGet<SearchSuggestionsResponse>(`/catalog/suggestions?${params}`, signal);
 }
 
 export function getSpeciesDetails(externalId: string, signal?: AbortSignal) {

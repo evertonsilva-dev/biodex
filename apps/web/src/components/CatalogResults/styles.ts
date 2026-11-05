@@ -131,16 +131,26 @@ export const PageButton = styled.button`
 
 export const Notice = styled.div<{ $error?: boolean }>`
   padding: 1.5rem;
-  border: 1px solid ${({ $error, theme }) => ($error ? '#d27d65' : theme.colors.line)};
+  border: 1px solid ${({ $error, theme }) => ($error ? '#d27d6566' : theme.colors.line)};
   border-radius: 14px;
-  background: ${({ theme }) => theme.colors.paper};
-  color: ${({ theme }) => theme.colors.ink};
+  background: ${({ $error }) => ($error ? "rgba(210, 125, 101, 0.08)" : "var(--kingdom-tint, rgba(62, 117, 87, 0.08))")};
+  color: ${({ $error, theme }) => ($error ? "#8B5A47" : theme.colors.ink)};
   line-height: 1.6;
+  
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  
+  &::before {
+    content: ${({ $error }) => $error ? "'⚠'" : "'ℹ'"};
+    font-size: 1.5rem;
+    line-height: 1;
+    ${({ $error }) => !$error && `opacity: 0.6;`}
+  }
 `;
 
 export const EmptyActions = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
-  margin-top: 1rem;
 `;

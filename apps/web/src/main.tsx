@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'styled-components';
 import { App } from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { CollectionsProvider } from './collections/CollectionsProvider';
 import { GlobalStyle } from './styles/GlobalStyle';
 import { theme } from './styles/theme';
 
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider theme={theme}>
         <GlobalStyle />
         <AppErrorBoundary>
-          <App />
+          <CollectionsProvider>
+            <App />
+          </CollectionsProvider>
         </AppErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>

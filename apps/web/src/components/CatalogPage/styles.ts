@@ -72,24 +72,6 @@ export const CatalogLayout = styled.div`
   }
 `;
 
-export const Search = styled.input`
-  min-width: 0;
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border: none;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
-  /* border-radius: 9px; */
-  background: transparent;
-  color: ${({ theme }) => theme.colors.ink};
-  font: inherit;
-  transition: border-color 0.2s ease-in-out;
-  &:focus {
-    border-color: ${({ theme }) => theme.colors.green};
-    border-width: 2px;
-    outline: none;
-  }
-`;
-
 export const SearchHint = styled.p`
   margin: 0.45rem 0 0;
   color: ${({ theme }) => theme.colors.muted};

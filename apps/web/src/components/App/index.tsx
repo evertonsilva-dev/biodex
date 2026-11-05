@@ -1,15 +1,30 @@
+import { lazy, Suspense } from 'react';
 import { CatalogPage } from '../CatalogPage';
 import { ErrorPage } from '../ErrorPage';
 import { LandingPage } from '../LandingPage';
 import { SpeciesDetailPage } from '../SpeciesDetailPage';
 import { useAppRoute } from '../../hooks/useAppRoute';
 
+const CollectionsPage = lazy(() =>
+  import('../CollectionsPage').then(({ CollectionsPage: page }) => ({ default: page })),
+);
+
 export function App() {
   const route = useAppRoute();
 
-  if (route.page === 'error') return <ErrorPage />;
-  if (route.page === 'landing') return <LandingPage />;
-  if (route.page === 'species') return <SpeciesDetailPage externalId={route.externalId} />;
-  if (route.page === 'catalog') return <CatalogPage />;
-  return <ErrorPage type="not-found" />;
+  let page;
+  if (route.page === 'error') page = <ErrorPage />;
+  else if (route.page === 'landing') page = <LandingPage />;
+  else if (route.page === 'species') page = <SpeciesDetailPage externalId={route.externalId} />;
+  else if (route.page === 'catalog') page = <CatalogPage />;
+  else if (route.page === 'collections') {
+    page = (
+      <Suspense fallback={<p role="status">Carregando coleções…</p>}>
+        <CollectionsPage collectionId={route.collectionId} />
+      </Suspense>
+    );
+  }
+  else page = <ErrorPage type="not-found" />;
+
+  return page;
 }

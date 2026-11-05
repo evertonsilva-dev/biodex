@@ -30,6 +30,7 @@ function adapt(handler: CatalogHandler): RequestHandler {
 export function createCatalogHttpController(catalog: CatalogController): CatalogHttpController {
   return {
     species: adapt(catalog.species),
+    suggestions: adapt(catalog.suggestions),
     speciesDetails: adapt(catalog.speciesDetails),
     speciesEnrichment: adapt(catalog.speciesEnrichment),
     kingdoms: adapt(catalog.kingdoms),

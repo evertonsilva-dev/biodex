@@ -16,16 +16,27 @@ export function useAppRoute(): AppRoute {
   const isErrorPage = pathname === '/error';
   const isLanding = pathname === '/' || pathname === '';
   const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
+  const collectionMatch = pathname.match(/^\/collections(?:\/([^/]+))?\/?$/);
+  let collectionId: string | null = null;
+  if (collectionMatch?.[1]) {
+    try {
+      collectionId = decodeURIComponent(collectionMatch[1]);
+    } catch {
+      collectionId = null;
+    }
+  }
+  const isCollections = collectionMatch !== null && (!collectionMatch[1] || collectionId !== null);
 
   useEffect(() => {
-    if (!isErrorPage && !isLanding && !isCatalog && externalId === null) {
+    if (!isErrorPage && !isLanding && !isCatalog && !isCollections && externalId === null) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isLanding, isCatalog, externalId]);
+  }, [isErrorPage, isLanding, isCatalog, isCollections, externalId]);
 
   if (isErrorPage) return { page: 'error' };
   if (externalId !== null) return { page: 'species', externalId };
   if (isLanding) return { page: 'landing' };
   if (isCatalog) return { page: 'catalog' };
+  if (isCollections) return { page: 'collections', collectionId };
   return { page: 'not-found' };
 }

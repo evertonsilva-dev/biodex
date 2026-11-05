@@ -11,7 +11,7 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 
 ## Navegação
 
-A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo.
+A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`, com sugestões de nomes populares, científicos e sinônimos enquanto você digita. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo. Em `/collections`, é possível criar coleções temáticas salvas localmente, adicionar espécies pelas cartas e compartilhar uma coleção por link. Coleções compartilhadas carregam até 100 espécies do catálogo e não exigem conta.
 
 ## Estrutura
 

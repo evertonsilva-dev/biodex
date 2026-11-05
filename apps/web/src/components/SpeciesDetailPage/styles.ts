@@ -35,11 +35,12 @@ export const BackLink = styled.a`
 `;
 
 export const Hero = styled.section<{ $hasImage: boolean }>`
+  position: relative;
   display: grid;
   grid-template-columns: ${({ $hasImage }) =>
     $hasImage ? "minmax(0, .95fr) minmax(0, 1.05fr)" : "1fr"};
   min-height: ${({ $hasImage }) => ($hasImage ? "420px" : "300px")};
-  overflow: hidden;
+  overflow: visible;
   border-bottom: 1px solid ${({ theme }) => theme.colors.line};
   /* border: 1px solid #fff9; */
   /* border-radius: 24px; */
@@ -656,12 +657,65 @@ export const RetryButton = styled.button`
 `;
 
 export const Notice = styled.div<{ $error?: boolean }>`
-  padding: 1.25rem;
+  padding: 1.5rem;
   border: 1px solid
-    ${({ $error, theme }) => ($error ? "#d27d65" : theme.colors.line)};
+    ${({ $error, theme }) => ($error ? "#d27d6566" : theme.colors.line)};
   border-radius: 14px;
-  background: ${({ theme }) => theme.colors.paper};
+  background: ${({ $error }) => ($error ? "rgba(210, 125, 101, 0.08)" : "var(--kingdom-tint)")};
+  color: ${({ $error, theme }) => ($error ? "#8B5A47" : theme.colors.ink)};
   line-height: 1.6;
+  font-size: 0.95rem;
+  
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  
+  &::before {
+    content: '⚠';
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    ${({ $error }) => !$error && `opacity: 0.5;`}
+  }
+`;
+
+export const NoticeContent = styled.p`
+  margin: 0;
+  flex: 1;
+`;
+
+export const NoticeAction = styled.a`
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.6rem 1.2rem;
+  margin-left: auto;
+  border: 1px solid #d27d65;
+  border-radius: 8px;
+  background: #d27d65;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 140ms ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #b35a43;
+    border-color: #b35a43;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px #d27d6540;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 600px) {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 1rem;
+  }
 `;
 
 export const Footer = styled.footer`
