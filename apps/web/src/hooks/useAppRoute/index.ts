@@ -16,6 +16,16 @@ export function useAppRoute(): AppRoute {
   const isErrorPage = pathname === '/error';
   const isLanding = pathname === '/' || pathname === '';
   const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
+  const editorialCollectionMatch = pathname.match(/^\/collections\/editorial\/([^/]+)\/?$/);
+  let editorialCollectionSlug: string | null = null;
+  if (editorialCollectionMatch?.[1]) {
+    try {
+      editorialCollectionSlug = decodeURIComponent(editorialCollectionMatch[1]);
+    } catch {
+      editorialCollectionSlug = null;
+    }
+  }
+  const isEditorialCollection = editorialCollectionSlug !== null;
   const collectionMatch = pathname.match(/^\/collections(?:\/([^/]+))?\/?$/);
   let collectionId: string | null = null;
   if (collectionMatch?.[1]) {
@@ -28,13 +38,23 @@ export function useAppRoute(): AppRoute {
   const isCollections = collectionMatch !== null && (!collectionMatch[1] || collectionId !== null);
 
   useEffect(() => {
-    if (!isErrorPage && !isLanding && !isCatalog && !isCollections && externalId === null) {
+    if (
+      !isErrorPage
+      && !isLanding
+      && !isCatalog
+      && !isCollections
+      && !isEditorialCollection
+      && externalId === null
+    ) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isLanding, isCatalog, isCollections, externalId]);
+  }, [isErrorPage, isLanding, isCatalog, isCollections, isEditorialCollection, externalId]);
 
   if (isErrorPage) return { page: 'error' };
   if (externalId !== null) return { page: 'species', externalId };
+  if (editorialCollectionSlug !== null) {
+    return { page: 'editorial-collection', slug: editorialCollectionSlug };
+  }
   if (isLanding) return { page: 'landing' };
   if (isCatalog) return { page: 'catalog' };
   if (isCollections) return { page: 'collections', collectionId };

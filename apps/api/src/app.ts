@@ -3,17 +3,20 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { createCatalogRouter } from './routes/catalog.routes.js';
+import { createEditorialCollectionsRouter } from './routes/editorial-collections.routes.js';
 import { errorHandler, notFoundHandler, HttpError } from './http/errors.js';
 import type { ApiEnvironment } from './config/env.js';
 import type { CatalogController } from './http/catalog.types.js';
+import type { EditorialCollectionsService } from './catalog/services/editorial-collections.js';
 
 interface CreateAppOptions {
   catalog: CatalogController;
+  editorialCollections: EditorialCollectionsService;
   healthCheck: () => Promise<boolean>;
   config: Pick<ApiEnvironment, 'corsOrigins'>;
 }
 
-export function createApp({ catalog, healthCheck, config }: CreateAppOptions) {
+export function createApp({ catalog, editorialCollections, healthCheck, config }: CreateAppOptions) {
   const app = express();
   const allowedOrigins = new Set(config.corsOrigins);
 
@@ -43,6 +46,7 @@ export function createApp({ catalog, healthCheck, config }: CreateAppOptions) {
     response.json({ status: 'ok' });
   });
   app.use('/api/catalog', createCatalogRouter(catalog));
+  app.use('/api/editorial-collections', createEditorialCollectionsRouter(editorialCollections));
   app.use(notFoundHandler);
   app.use(errorHandler);
 

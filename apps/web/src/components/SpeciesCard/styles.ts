@@ -1,6 +1,9 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
-export const Card = styled.article<{ $kingdomColor: string; $preview?: boolean }>`
+export const Card = styled.article<{
+  $kingdomColor: string;
+  $preview?: boolean;
+}>`
   position: relative;
   overflow: hidden;
   min-width: 0;
@@ -8,13 +11,19 @@ export const Card = styled.article<{ $kingdomColor: string; $preview?: boolean }
   border: 1px solid #e8dfce;
   border-radius: 15px;
   background: #304b3b;
-  box-shadow: 0 8px 22px ${({ $kingdomColor }) => `${$kingdomColor}18`}, 0 2px 6px #202b2610;
-  cursor: ${({ $preview }) => $preview ? 'default' : 'pointer'};
-  transition: transform 220ms ease, box-shadow 220ms ease;
+  box-shadow:
+    0 8px 22px ${({ $kingdomColor }) => `${$kingdomColor}18`},
+    0 2px 6px #202b2610;
+  cursor: ${({ $preview }) => ($preview ? "default" : "pointer")};
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease;
 
   &:hover {
     transform: translateY(-5px);
-    box-shadow: 0 16px 34px ${({ $kingdomColor }) => `${$kingdomColor}25`}, 0 4px 10px #202b2618;
+    box-shadow:
+      0 16px 34px ${({ $kingdomColor }) => `${$kingdomColor}25`},
+      0 4px 10px #202b2618;
   }
 `;
 
@@ -30,16 +39,19 @@ export const CardDetailsLink = styled.a<{ $kingdomColor: string }>`
   }
 `;
 
-export const Artwork = styled.div<{ $kingdomColor: string; $hasImage: boolean }>`
+export const Artwork = styled.div<{
+  $kingdomColor: string;
+  $hasImage: boolean;
+}>`
   position: absolute;
   inset: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   padding: 1rem 1rem 1.15rem;
-  background:
-    ${({ $hasImage, $kingdomColor }) => $hasImage
-      ? 'linear-gradient(180deg, #1d302d55 0%, transparent 32%, transparent 40%, #182a25ef 100%), #182a25'
+  background: ${({ $hasImage, $kingdomColor }) =>
+    $hasImage
+      ? "linear-gradient(180deg, #1d302d55 0%, transparent 32%, transparent 40%, #182a25ef 100%), #182a25"
       : `radial-gradient(ellipse at 50% 42%, ${$kingdomColor}, color-mix(in srgb, ${$kingdomColor} 42%, #17231b) 78%), linear-gradient(145deg, ${$kingdomColor}, color-mix(in srgb, ${$kingdomColor} 38%, #17231b))`};
   color: #fff8eb;
   font-size: 4rem;
@@ -51,7 +63,7 @@ export const Artwork = styled.div<{ $kingdomColor: string; $hasImage: boolean }>
     background:
       linear-gradient(0deg, #000d 0%, #0009 25%, transparent 62%),
       linear-gradient(180deg, #0007 0%, transparent 25%);
-    content: '';
+    content: "";
     pointer-events: none;
   }
 `;
@@ -65,7 +77,9 @@ export const ArtworkImage = styled.img`
   object-position: center;
   transition: transform 500ms ease;
 
-  ${Card}:hover & { transform: scale(1.045); }
+  ${Card}:hover & {
+    transform: scale(1.045);
+  }
 `;
 
 export const ArtworkFallback = styled.div`
@@ -87,7 +101,7 @@ export const ImageCredit = styled.a`
   z-index: 2;
   display: block;
   overflow: hidden;
-  margin: .5rem 0 0;
+  margin: 0.5rem 0 0;
   color: #c9d3c7;
   font-size: 0.62rem;
   line-height: 1.3;
@@ -95,7 +109,9 @@ export const ImageCredit = styled.a`
   text-overflow: ellipsis;
   white-space: nowrap;
 
-  &:hover { color: #fff8eb; }
+  &:hover {
+    color: #fff8eb;
+  }
 `;
 
 export const ArtworkMeta = styled.div`
@@ -104,15 +120,15 @@ export const ArtworkMeta = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .5rem;
+  gap: 0.5rem;
 `;
 
 export const ArtLabel = styled.span`
   overflow: hidden;
   color: #fff8eb;
-  font-size: .55rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: .13em;
+  letter-spacing: 0.13em;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
@@ -122,15 +138,15 @@ export const SideLabel = styled.span`
   position: absolute;
   top: 36%;
   bottom: 30%;
-  left: .55rem;
+  left: 0.55rem;
   z-index: 1;
   overflow: hidden;
   color: #fff8eb;
-  font-size: .53rem;
+  font-size: 0.53rem;
   font-weight: 800;
-  letter-spacing: .11em;
+  letter-spacing: 0.11em;
   line-height: 1;
-  opacity: .94;
+  opacity: 0.94;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
@@ -140,20 +156,20 @@ export const SideLabel = styled.span`
 
 export const CardTag = styled.span`
   flex: 0 0 auto;
-  padding: .38rem .55rem;
+  padding: 0.38rem 0.55rem;
   border: 1px solid #fff8eb78;
   border-radius: 999px;
   color: #fff8eb;
-  font-size: .48rem;
+  font-size: 0.48rem;
   font-weight: 800;
-  letter-spacing: .13em;
+  letter-spacing: 0.13em;
 `;
 
 export const SpecimenInfo = styled.div`
   position: relative;
   z-index: 1;
   margin-top: auto;
-  padding: .8rem 0 0 1.15rem;
+  padding: 0.8rem 0 0 1.15rem;
   border-top: 1px solid #fff8eb70;
 `;
 
@@ -163,11 +179,11 @@ export const Name = styled.h2`
   min-width: 0;
   margin: 0;
   color: #fff8eb;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(1rem, 1.5vw, 1.35rem);
   font-weight: 400;
   font-style: italic;
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
   line-height: 1.1;
   word-break: break-all;
   -webkit-box-orient: vertical;
@@ -178,18 +194,18 @@ export const CardFooter = styled.div`
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: .4rem;
-  margin-top: .35rem;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
 `;
 
 export const Taxonomy = styled.p`
   display: -webkit-box;
   overflow: hidden;
-  margin: 0 0 .05rem;
+  margin: 0 0 0.05rem;
   color: #e7d9c4;
-  font-size: .53rem;
+  font-size: 0.53rem;
   font-weight: 800;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   line-height: 1.45;
   text-transform: uppercase;
   -webkit-box-orient: vertical;

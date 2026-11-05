@@ -2,6 +2,7 @@ import { httpServerHandler } from 'cloudflare:node';
 import { env } from 'cloudflare:workers';
 import pg, { type QueryResultRow } from 'pg';
 import createCatalogController from '../../api/src/catalog/controllers/catalog.js';
+import { createEditorialCollectionsService } from '../../api/src/catalog/services/editorial-collections.js';
 import { isCatalogReady } from '../../api/src/database/catalog-readiness.js';
 import { createApp } from '../../api/src/app.js';
 import type { CatalogDatabase } from '../../api/src/http/catalog.types.js';
@@ -39,6 +40,7 @@ const corsOrigins = (env.CORS_ORIGINS ?? '')
 
 const app = createApp({
   catalog: createCatalogController({ runtime }),
+  editorialCollections: createEditorialCollectionsService(database),
   healthCheck: () => isCatalogReady(database),
   config: { corsOrigins },
 });

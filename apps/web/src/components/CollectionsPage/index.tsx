@@ -1,16 +1,20 @@
-import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getSpeciesByIds } from '../../api/species';
-import { useCollections } from '../../collections/CollectionsProvider';
-import { SpeciesCard } from '../SpeciesCard';
-import { CollectionMenu } from './CollectionMenu';
-import { TopBar } from '../TopBar';
-import type { CollectionsPageProps } from './types';
+import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Check, Share2, Trash2 } from "lucide-react";
+import { getSpeciesByIds } from "../../api/species";
+import { useCollections } from "../../collections/CollectionsProvider";
+import { SpeciesCard } from "../SpeciesCard";
+import { CollectionMenu } from "./CollectionMenu";
+import { ConfirmDelete } from "./ConfirmDelete";
+import { TopBar } from "../TopBar";
+import type { CollectionsPageProps } from "./types";
 import {
   Action,
   CollectionCard,
   CollectionGrid,
+  CollectionIconActions,
+  CollectionIconButton,
   CreateForm,
   DeckCard,
   DeckLink,
@@ -23,8 +27,7 @@ import {
   Notice,
   Page,
   SpeciesGrid,
-  TextButton,
-} from './styles';
+} from "./styles";
 
 const MAX_SHARED_SPECIES = 100;
 const PREVIEW_CARD_LIMIT = 4;
@@ -49,27 +52,44 @@ function deckPosition(collectionId: string, speciesId: string, index: number) {
 }
 
 export function CollectionsPage({ collectionId }: CollectionsPageProps) {
-  const { collections, createCollection, renameCollection, deleteCollection } = useCollections();
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
+  const { collections, createCollection, renameCollection, deleteCollection } =
+    useCollections();
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const collection = collections.find((item) => item.id === collectionId);
-  const isShared = collectionId === 'shared';
-  const sharedName = new URLSearchParams(window.location.search).get('name')?.trim() || 'Coleção compartilhada';
+  const isShared = collectionId === "shared";
+  const sharedName =
+    new URLSearchParams(window.location.search).get("name")?.trim() ||
+    "Coleção compartilhada";
   const requestedSharedIds = useMemo(
-    () => [...new Set(new URLSearchParams(window.location.search).getAll('species').filter(Boolean))],
+    () => [
+      ...new Set(
+        new URLSearchParams(window.location.search)
+          .getAll("species")
+          .filter(Boolean),
+      ),
+    ],
     [],
   );
   const sharedIds = requestedSharedIds.slice(0, MAX_SHARED_SPECIES);
   const tooManySharedSpecies = requestedSharedIds.length > MAX_SHARED_SPECIES;
   const sharedSpeciesQuery = useQuery({
-    queryKey: ['shared-collection', sharedIds],
+    queryKey: ["shared-collection", sharedIds],
     queryFn: ({ signal }) => getSpeciesByIds(sharedIds, signal),
     enabled: isShared && !tooManySharedSpecies && sharedIds.length > 0,
   });
   const sharedSpecies = useMemo(() => {
-    const speciesById = new Map((sharedSpeciesQuery.data?.data ?? []).map((species) => [species.documentId, species]));
-    return sharedIds.map((id) => speciesById.get(id)).filter((species) => species !== undefined);
+    const speciesById = new Map(
+      (sharedSpeciesQuery.data?.data ?? []).map((species) => [
+        species.documentId,
+        species,
+      ]),
+    );
+    return sharedIds
+      .map((id) => speciesById.get(id))
+      .filter((species) => species !== undefined);
   }, [sharedIds, sharedSpeciesQuery.data]);
 
   function submitCreate(event: FormEvent<HTMLFormElement>) {
@@ -80,7 +100,11 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
       const created = createCollection(trimmed);
       window.location.href = `/collections/${encodeURIComponent(created.id)}`;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível criar a coleção.');
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Não foi possível criar a coleção.",
+      );
     }
   }
 
@@ -89,10 +113,14 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     if (!collection || !name.trim()) return;
     try {
       renameCollection(collection.id, name);
-      setName('');
-      setError('');
+      setName("");
+      setError("");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível renomear a coleção.');
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Não foi possível renomear a coleção.",
+      );
     }
   }
 
@@ -102,17 +130,20 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
       setError(`O compartilhamento aceita até ${MAX_SHARED_SPECIES} espécies.`);
       return;
     }
-    const url = new URL('/collections/shared', window.location.origin);
-    url.searchParams.set('name', collection.name);
-    for (const species of collection.species) url.searchParams.append('species', species.documentId);
+    const url = new URL("/collections/shared", window.location.origin);
+    url.searchParams.set("name", collection.name);
+    for (const species of collection.species)
+      url.searchParams.append("species", species.documentId);
     try {
       await navigator.clipboard.writeText(url.toString());
       setCopied(true);
-      setError('');
+      setError("");
     } catch (reason) {
-      setError(reason instanceof Error
-        ? `Não foi possível copiar o link: ${reason.message}`
-        : 'Não foi possível copiar o link. Verifique a permissão da área de transferência.');
+      setError(
+        reason instanceof Error
+          ? `Não foi possível copiar o link: ${reason.message}`
+          : "Não foi possível copiar o link. Verifique a permissão da área de transferência.",
+      );
     }
   }
 
@@ -127,15 +158,37 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
             <p>Uma seleção de espécies compartilhada pela comunidade Biodex.</p>
           </div>
         </Heading>
-        {tooManySharedSpecies && <ErrorMessage role="alert">Este link excede o limite de {MAX_SHARED_SPECIES} espécies.</ErrorMessage>}
-        {sharedIds.length === 0 && <Notice>Este link ainda não contém espécies.</Notice>}
-        {!tooManySharedSpecies && sharedIds.length > 0 && sharedSpeciesQuery.isPending && <Notice>Carregando espécies compartilhadas…</Notice>}
-        {sharedSpeciesQuery.isError && <ErrorMessage role="alert">Não foi possível carregar as espécies. Tente novamente mais tarde.</ErrorMessage>}
-        {!tooManySharedSpecies && !sharedSpeciesQuery.isPending && !sharedSpeciesQuery.isError && sharedSpecies.length === 0 && sharedIds.length > 0 && (
-          <Notice>As espécies deste link não estão disponíveis no catálogo.</Notice>
+        {tooManySharedSpecies && (
+          <ErrorMessage role="alert">
+            Este link excede o limite de {MAX_SHARED_SPECIES} espécies.
+          </ErrorMessage>
         )}
+        {sharedIds.length === 0 && (
+          <Notice>Este link ainda não contém espécies.</Notice>
+        )}
+        {!tooManySharedSpecies &&
+          sharedIds.length > 0 &&
+          sharedSpeciesQuery.isPending && (
+            <Notice>Carregando espécies compartilhadas…</Notice>
+          )}
+        {sharedSpeciesQuery.isError && (
+          <ErrorMessage role="alert">
+            Não foi possível carregar as espécies. Tente novamente mais tarde.
+          </ErrorMessage>
+        )}
+        {!tooManySharedSpecies &&
+          !sharedSpeciesQuery.isPending &&
+          !sharedSpeciesQuery.isError &&
+          sharedSpecies.length === 0 &&
+          sharedIds.length > 0 && (
+            <Notice>
+              As espécies deste link não estão disponíveis no catálogo.
+            </Notice>
+          )}
         <SpeciesGrid>
-          {sharedSpecies.map((species) => <SpeciesCard key={species.documentId} species={species} />)}
+          {sharedSpecies.map((species) => (
+            <SpeciesCard key={species.documentId} species={species} />
+          ))}
         </SpeciesGrid>
       </Page>
     );
@@ -145,8 +198,16 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     return (
       <Page>
         <TopBar label="COLEÇÕES DE ESPÉCIES" />
-        <Heading><div><Eyebrow>Suas descobertas</Eyebrow><h1>Coleção não encontrada</h1><p>Esta coleção não existe neste navegador.</p></div></Heading>
-        <Action as="a" href="/collections">Voltar às coleções</Action>
+        <Heading>
+          <div>
+            <Eyebrow>Suas descobertas</Eyebrow>
+            <h1>Coleção não encontrada</h1>
+            <p>Esta coleção não existe neste navegador.</p>
+          </div>
+        </Heading>
+        <Action as="a" href="/collections">
+          Voltar às coleções
+        </Action>
       </Page>
     );
   }
@@ -159,11 +220,38 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
           <div>
             <Eyebrow>Sua biblioteca pessoal</Eyebrow>
             <h1>{collection.name}</h1>
-            <p>{collection.species.length} {collection.species.length === 1 ? 'espécie salva' : 'espécies salvas'} nesta coleção.</p>
+            <p>
+              {collection.species.length}{" "}
+              {collection.species.length === 1
+                ? "espécie salva"
+                : "espécies salvas"}{" "}
+              nesta coleção.
+            </p>
+            <CollectionIconActions>
+              <CollectionIconButton
+                type="button"
+                aria-label={copied ? "Link copiado" : "Compartilhar coleção"}
+                title={copied ? "Link copiado" : "Compartilhar coleção"}
+                onClick={() => void share()}
+                disabled={collection.species.length === 0}
+              >
+                {copied ? (
+                  <Check size={18} aria-hidden="true" />
+                ) : (
+                  <Share2 size={18} aria-hidden="true" />
+                )}
+              </CollectionIconButton>
+              <CollectionIconButton
+                type="button"
+                aria-label="Excluir coleção"
+                title="Excluir coleção"
+                $danger
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 size={18} aria-hidden="true" />
+              </CollectionIconButton>
+            </CollectionIconActions>
           </div>
-          <Action type="button" onClick={() => void share()} disabled={collection.species.length === 0}>
-            {copied ? 'Link copiado!' : 'Compartilhar'}
-          </Action>
         </Heading>
         <InlineForm onSubmit={submitRename}>
           <input
@@ -174,20 +262,41 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
             aria-label="Novo nome da coleção"
             maxLength={60}
           />
-          <Action type="submit" disabled={!name.trim()}>Renomear</Action>
+          <Action type="submit" disabled={!name.trim()}>
+            Renomear
+          </Action>
         </InlineForm>
         {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
-        {collection.species.length === 0
-          ? <Notice>Salve espécies nesta coleção usando o botão “＋ Coleção” nas cartas.</Notice>
-          : <SpeciesGrid>{collection.species.map((species) => <SpeciesCard key={species.documentId} species={species} />)}</SpeciesGrid>}
-        <TextButton type="button" onClick={() => {
-          try {
-            deleteCollection(collection.id);
-            window.location.href = '/collections';
-          } catch (reason) {
-            setError(reason instanceof Error ? reason.message : 'Não foi possível excluir a coleção.');
-          }
-        }}>Excluir coleção</TextButton>
+        {showDeleteConfirm && (
+          <ConfirmDelete
+            name={collection.name}
+            onConfirm={() => {
+              setShowDeleteConfirm(false);
+              try {
+                deleteCollection(collection.id);
+                window.location.href = "/collections";
+              } catch (reason) {
+                setError(
+                  reason instanceof Error
+                    ? reason.message
+                    : "Não foi possível excluir a coleção.",
+                );
+              }
+            }}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
+        {collection.species.length === 0 ? (
+          <Notice>
+            Salve espécies nesta coleção usando o botão “＋ Coleção” nas cartas.
+          </Notice>
+        ) : (
+          <SpeciesGrid>
+            {collection.species.map((species) => (
+              <SpeciesCard key={species.documentId} species={species} />
+            ))}
+          </SpeciesGrid>
+        )}
       </Page>
     );
   }
@@ -199,7 +308,10 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
         <div>
           <Eyebrow>Organize suas descobertas</Eyebrow>
           <h1>Suas coleções</h1>
-          <p>Guarde espécies em seleções temáticas e compartilhe suas descobertas com um link.</p>
+          <p>
+            Guarde espécies em seleções temáticas e compartilhe suas descobertas
+            com um link.
+          </p>
         </div>
       </Heading>
       <CreateForm onSubmit={submitCreate}>
@@ -211,57 +323,93 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
           aria-label="Nome da coleção"
           maxLength={60}
         />
-        <Action type="submit" disabled={!name.trim()}>Criar coleção</Action>
+        <Action type="submit" disabled={!name.trim()}>
+          Criar coleção
+        </Action>
       </CreateForm>
       {error && <ErrorMessage role="alert">{error}</ErrorMessage>}
-      {collections.length === 0
-        ? <Notice>Você ainda não criou coleções. Também pode salvar uma espécie diretamente pela carta no catálogo.</Notice>
-        : <CollectionGrid>{collections.map((item) => (
-          <CollectionCard key={item.id}>
-            <header>
-              <div>
-                <h2>{item.name}</h2>
-                <p>{item.species.length} {item.species.length === 1 ? 'espécie' : 'espécies'}</p>
-              </div>
-              <CollectionMenu
-                name={item.name}
-                onDelete={() => {
-                  try {
-                    deleteCollection(item.id);
-                  } catch (reason) {
-                    setError(reason instanceof Error ? reason.message : 'Não foi possível excluir a coleção.');
-                  }
-                }}
-              />
-            </header>
-            <DeckStage role="group" aria-label={`Prévia da coleção ${item.name}`}>
-              {item.species.length === 0
-                ? <EmptyDeck>Adicione espécies para formar seu deck</EmptyDeck>
-                : item.species.slice(0, PREVIEW_CARD_LIMIT).map((species, index) => {
-                  const position = deckPosition(item.id, species.documentId, index);
-                  return (
-                    <DeckCard
-                      key={species.documentId}
-                      $x={position.x}
-                      $y={position.y}
-                      $rotation={position.rotation}
-                      $z={position.z}
-                      $spreadX={(index - (Math.min(item.species.length, PREVIEW_CARD_LIMIT) - 1) / 2) * 34}
-                    >
-                      <div className="deck-card-face">
-                        <SpeciesCard species={species} preview />
-                      </div>
-                      <DeckLink
-                        href={`/collections/${encodeURIComponent(item.id)}`}
-                        aria-label={`Abrir coleção ${item.name}`}
-                        title={`Abrir coleção ${item.name}`}
-                      />
-                    </DeckCard>
-                  );
-                })}
-            </DeckStage>
-          </CollectionCard>
-        ))}</CollectionGrid>}
+      {collections.length === 0 ? (
+        <Notice>
+          Você ainda não criou coleções. Também pode salvar uma espécie
+          diretamente pela carta no catálogo.
+        </Notice>
+      ) : (
+        <CollectionGrid>
+          {collections.map((item) => (
+            <CollectionCard key={item.id}>
+              <header>
+                <div>
+                  <h2>{item.name}</h2>
+                  <p>
+                    {item.species.length}{" "}
+                    {item.species.length === 1 ? "espécie" : "espécies"}
+                  </p>
+                </div>
+                <CollectionMenu
+                  name={item.name}
+                  onDelete={() => {
+                    try {
+                      deleteCollection(item.id);
+                    } catch (reason) {
+                      setError(
+                        reason instanceof Error
+                          ? reason.message
+                          : "Não foi possível excluir a coleção.",
+                      );
+                    }
+                  }}
+                />
+              </header>
+              <DeckStage
+                role="group"
+                aria-label={`Prévia da coleção ${item.name}`}
+              >
+                {item.species.length === 0 ? (
+                  <EmptyDeck>Adicione espécies para formar seu deck</EmptyDeck>
+                ) : (
+                  item.species
+                    .slice(0, PREVIEW_CARD_LIMIT)
+                    .map((species, index) => {
+                      const position = deckPosition(
+                        item.id,
+                        species.documentId,
+                        index,
+                      );
+                      return (
+                        <DeckCard
+                          key={species.documentId}
+                          $x={position.x}
+                          $y={position.y}
+                          $rotation={position.rotation}
+                          $z={position.z}
+                          $spreadX={
+                            (index -
+                              (Math.min(
+                                item.species.length,
+                                PREVIEW_CARD_LIMIT,
+                              ) -
+                                1) /
+                                2) *
+                            34
+                          }
+                        >
+                          <div className="deck-card-face">
+                            <SpeciesCard species={species} preview />
+                          </div>
+                          <DeckLink
+                            href={`/collections/${encodeURIComponent(item.id)}`}
+                            aria-label={`Abrir coleção ${item.name}`}
+                            title={`Abrir coleção ${item.name}`}
+                          />
+                        </DeckCard>
+                      );
+                    })
+                )}
+              </DeckStage>
+            </CollectionCard>
+          ))}
+        </CollectionGrid>
+      )}
     </Page>
   );
 }

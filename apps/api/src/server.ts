@@ -4,6 +4,7 @@ import { createDatabaseClient } from './database/query.js';
 import { createPool } from './database/pool.js';
 import { isCatalogReady } from './database/catalog-readiness.js';
 import createCatalogController from './catalog/controllers/catalog.js';
+import { createEditorialCollectionsService } from './catalog/services/editorial-collections.js';
 
 const pool = createPool(env);
 const runtime = {
@@ -16,6 +17,7 @@ const runtime = {
 
 const app = createApp({
   catalog: createCatalogController({ runtime }),
+  editorialCollections: createEditorialCollectionsService(runtime.db),
   healthCheck: () => isCatalogReady(runtime.db),
   config: env,
 });

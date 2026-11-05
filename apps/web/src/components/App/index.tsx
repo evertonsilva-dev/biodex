@@ -8,6 +8,11 @@ import { useAppRoute } from '../../hooks/useAppRoute';
 const CollectionsPage = lazy(() =>
   import('../CollectionsPage').then(({ CollectionsPage: page }) => ({ default: page })),
 );
+const EditorialCollectionDetail = lazy(() =>
+  import('../EditorialCollectionDetail').then(({ EditorialCollectionDetail: page }) => ({
+    default: page,
+  })),
+);
 
 export function App() {
   const route = useAppRoute();
@@ -21,6 +26,13 @@ export function App() {
     page = (
       <Suspense fallback={<p role="status">Carregando coleções…</p>}>
         <CollectionsPage collectionId={route.collectionId} />
+      </Suspense>
+    );
+  }
+  else if (route.page === 'editorial-collection') {
+    page = (
+      <Suspense fallback={<p role="status">Carregando coleção…</p>}>
+        <EditorialCollectionDetail slug={route.slug} />
       </Suspense>
     );
   }
