@@ -1,4 +1,5 @@
 import { TopBar } from '../TopBar';
+import { PageNavigation } from '../PageNavigation';
 import { Page, Hero, Eyebrow, Title, Description, Actions, ActionLink, Container } from './styles';
 import type { ErrorPageProps, ErrorType } from './types';
 import { useErrorPage } from '../../hooks/useErrorPage';
@@ -33,6 +34,14 @@ export function ErrorPage({ type }: ErrorPageProps) {
   return (
     <Page>
       <TopBar label="AVISO" />
+      <PageNavigation
+        items={[
+          { label: 'Catálogo', href: '/catalog' },
+          { label: 'Aviso' },
+        ]}
+        backHref="/catalog"
+        backLabel="Voltar ao catálogo"
+      />
 
       <Hero>
         <Container>

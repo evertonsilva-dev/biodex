@@ -1,10 +1,23 @@
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-const apiDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const moduleDirectory = dirname(fileURLToPath(import.meta.url));
+const apiDirectoryCandidate = resolve(moduleDirectory, '..', '..');
+const apiDirectory = basename(apiDirectoryCandidate) === 'dist'
+  ? resolve(apiDirectoryCandidate, '..')
+  : apiDirectoryCandidate;
 dotenv.config({ path: resolve(apiDirectory, '.env') });
+const rootEnvironment = dotenv.config({
+  path: resolve(apiDirectory, '..', '..', '.env.local'),
+}).parsed;
+
+for (const key of ['NEON_AUTH_BASE_URL', 'NEON_AUTH_JWKS_URL'] as const) {
+  if (!process.env[key]?.trim() && rootEnvironment?.[key]?.trim()) {
+    process.env[key] = rootEnvironment[key];
+  }
+}
 
 const positiveInteger = (fallback: number) => z
   .string()
@@ -29,6 +42,8 @@ const envSchema = z.object({
   DATABASE_PASSWORD: z.string().default(''),
   DATABASE_SSL: z.enum(['true', 'false']).default('false'),
   DATABASE_POOL_MAX: positiveInteger(10),
+  NEON_AUTH_BASE_URL: z.string().default(''),
+  NEON_AUTH_JWKS_URL: z.string().default(''),
 }).safeParse(process.env);
 
 if (!envSchema.success) {
@@ -51,6 +66,8 @@ export const env = {
   databasePassword: envSchema.data.DATABASE_PASSWORD,
   databaseSsl: envSchema.data.DATABASE_SSL === 'true',
   databasePoolMax: envSchema.data.DATABASE_POOL_MAX,
+  neonAuthBaseUrl: envSchema.data.NEON_AUTH_BASE_URL,
+  neonAuthJwksUrl: envSchema.data.NEON_AUTH_JWKS_URL,
 };
 
 export type ApiEnvironment = typeof env;

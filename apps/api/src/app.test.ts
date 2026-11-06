@@ -12,6 +12,11 @@ const editorialCollection = {
   speciesIds: ['KF8T'],
   order: 1,
 };
+const userCollection = {
+  id: 'a7e8f318-3342-4efe-aab2-a24d9d3e9881',
+  name: 'Aves',
+  speciesIds: ['KF8T'],
+};
 
 const app = createApp({
   catalog: {
@@ -44,6 +49,24 @@ const app = createApp({
     getAll: async () => [editorialCollection],
     getBySlug: async (slug) => slug === editorialCollection.slug ? editorialCollection : null,
   },
+  userCollections: {
+    getAll: async (ownerId) => ownerId === 'test-user' ? [userCollection] : [],
+    create: async (ownerId, name, speciesIds) => ({
+      ...userCollection,
+      id: ownerId,
+      name,
+      speciesIds,
+    }),
+    import: async () => {},
+    update: async (ownerId, id, name, speciesIds) => ({
+      ...userCollection,
+      id: ownerId === 'test-user' ? id : '',
+      name,
+      speciesIds,
+    }),
+    delete: async (ownerId) => ownerId === 'test-user',
+  },
+  verifyAccessToken: async (token) => token === 'valid-token' ? 'test-user' : null,
   healthCheck: async () => true,
   config: { corsOrigins: ['http://localhost:5173'] },
 });
@@ -85,6 +108,80 @@ test('Express app preserves health, catalog, CORS, and error responses', async (
     );
     assert.equal(editorialCollectionDetail.status, 200);
     assert.deepEqual(await editorialCollectionDetail.json(), { data: editorialCollection });
+
+    const unauthenticatedCollections = await fetch(`${baseUrl}/api/collections`);
+    assert.equal(unauthenticatedCollections.status, 401);
+    assert.deepEqual((await unauthenticatedCollections.json()).error, {
+      status: 401,
+      name: 'ApplicationError',
+      message: 'É necessário entrar para acessar as coleções.',
+    });
+
+    const userCollections = await fetch(`${baseUrl}/api/collections`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+    assert.equal(userCollections.status, 200);
+    assert.deepEqual(await userCollections.json(), { data: [userCollection] });
+
+    const createdUserCollection = await fetch(`${baseUrl}/api/collections`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Mamíferos', speciesIds: ['KF8T'] }),
+    });
+    assert.equal(createdUserCollection.status, 201);
+    assert.deepEqual((await createdUserCollection.json()).data, {
+      ...userCollection,
+      id: 'test-user',
+      name: 'Mamíferos',
+    });
+
+    const importedUserCollections = await fetch(`${baseUrl}/api/collections/import`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        collections: [{ ...userCollection, speciesIds: ['KF8T'] }],
+      }),
+    });
+    assert.equal(importedUserCollections.status, 200);
+    assert.deepEqual(await importedUserCollections.json(), {
+      data: { imported: true },
+    });
+
+    const updatedUserCollection = await fetch(
+      `${baseUrl}/api/collections/${userCollection.id}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer valid-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'Aves atualizadas', speciesIds: [] }),
+      },
+    );
+    assert.equal(updatedUserCollection.status, 200);
+    assert.deepEqual((await updatedUserCollection.json()).data, {
+      ...userCollection,
+      name: 'Aves atualizadas',
+      speciesIds: [],
+    });
+
+    const deletedUserCollection = await fetch(
+      `${baseUrl}/api/collections/${userCollection.id}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer valid-token' },
+      },
+    );
+    assert.equal(deletedUserCollection.status, 200);
+    assert.deepEqual(await deletedUserCollection.json(), {
+      data: { deleted: true },
+    });
 
     const missingEditorialCollection = await fetch(
       `${baseUrl}/api/editorial-collections/nao-existe`,

@@ -2,6 +2,7 @@ import { SpeciesDetailContent } from "../SpeciesDetailContent";
 import { SpeciesDetailSkeleton } from "../SpeciesDetailSkeleton";
 import { useSpeciesDetailPage } from "../../hooks/useSpeciesDetailPage";
 import { TopBar } from "../TopBar";
+import { PageNavigation } from "../PageNavigation";
 import type { SpeciesDetailPageProps } from "./types";
 import { Notice, Page, NoticeContent, NoticeAction } from "./styles";
 
@@ -13,6 +14,15 @@ export function SpeciesDetailPage({ externalId }: SpeciesDetailPageProps) {
       <TopBar
         label="FICHA TAXONÔMICA"
         kingdomColor={species?.kingdom?.color}
+      />
+      <PageNavigation
+        items={[
+          { label: "Catálogo", href: `/catalog${window.location.search}` },
+          { label: species?.commonName || "Ficha da espécie" },
+        ]}
+        backHref={`/catalog${window.location.search}`}
+        backLabel="Voltar ao catálogo"
+        accentColor={species?.kingdom?.color ?? "#3e7557"}
       />
       {isLoading && <SpeciesDetailSkeleton />}
       {hasError && (

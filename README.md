@@ -11,7 +11,7 @@ Catálogo visual de biodiversidade em formato de cartas colecionáveis. O projet
 
 ## Navegação
 
-A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`, com sugestões de nomes populares, científicos e sinônimos enquanto você digita. As fichas continuam disponíveis em `/species/:id`, com o link de retorno preservando os filtros aplicados no catálogo. Em `/collections`, é possível criar coleções temáticas salvas localmente, adicionar espécies pelas cartas e compartilhar uma coleção por link. Coleções compartilhadas carregam até 100 espécies do catálogo e não exigem conta.
+A página inicial (`/`) apresenta o projeto; o catálogo visual fica em `/catalog`, com sugestões de nomes populares, científicos e sinônimos enquanto você digita. As fichas continuam disponíveis em `/species/:id`, com navegação de retorno preservando os filtros aplicados no catálogo. As coleções pessoais ficam em `/collections` e exigem login; coleções compartilhadas carregam até 100 espécies do catálogo e não exigem conta. A área `/login` permite entrar ou se cadastrar com e-mail e senha ou Google; `/profile` exibe os dados da conta e também exige login. Com Neon Auth configurado, as coleções pessoais são sincronizadas com a API; a primeira sincronização importa as coleções locais sem removê-las até confirmar a cópia remota.
 
 ## Estrutura
 
@@ -71,6 +71,8 @@ apps/
    ```
 
    Esse comando inicia o Vite com HMR e conecta à API local em `http://localhost:1337/api` (ou à URL definida por `VITE_API_URL` em `apps/web/.env.local`). Para testar o Worker localmente com Wrangler, use `npm run dev:cloudflare`; esse fluxo constrói os arquivos antes de iniciar o Worker e não oferece HMR. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
+
+O login é opcional. Para desenvolvimento com Neon Auth, use uma branch isolada com `auth: true` em `neon.ts` (por exemplo, `neon checkout dev-auth --create --no-env-pull`) e obtenha somente as variáveis de Auth com `neon env pull --service auth --file .env.local`. O frontend lê `NEON_AUTH_BASE_URL` dessa configuração; a API também lê `NEON_AUTH_BASE_URL` e `NEON_AUTH_JWKS_URL` do `.env.local` na raiz. Aplique `apps/api/scripts/user-collections-schema.sql` ao banco usado pela API antes de testar as coleções autenticadas. Não aplique a configuração de Auth à branch principal sem intenção explícita. Em produção, configure a origem confiável da aplicação e credenciais próprias para Google OAuth.
 
 Para compilar a API, execute `npm run build:api`. Para compilar e validar as rotas e middlewares sem conectar ao banco, execute `npm test --workspace @biodex/api`. Em desenvolvimento, `tsx watch` executa os arquivos TypeScript diretamente; em produção, `npm run start:api` executa a saída compilada em `apps/api/dist`.
 

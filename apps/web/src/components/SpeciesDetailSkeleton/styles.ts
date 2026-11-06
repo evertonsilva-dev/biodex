@@ -1,26 +1,34 @@
 import styled from 'styled-components';
 
 export const SkeletonHero = styled.section`
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) 1.1fr;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  min-height: 420px;
   margin-top: 1.5rem;
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: 20px;
-  background: ${({ theme }) => theme.colors.paper};
-  box-shadow: 0 12px 32px #202b2608;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
 
-  @media (max-width: 700px) {
+  @media (max-width: 760px) {
     grid-template-columns: 1fr;
+    min-height: 0;
   }
 `;
 
 export const SkeletonArtwork = styled.div`
-  min-height: 340px;
-  padding: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.8rem 0 0.8rem 0.8rem;
 
-  @media (max-width: 700px) {
-    min-height: 260px;
+  > div {
+    min-height: 340px;
+  }
+
+  @media (max-width: 760px) {
+    padding: 0.7rem 0.7rem 0;
+
+    > div {
+      min-height: 260px;
+    }
   }
 `;
 
@@ -29,7 +37,11 @@ export const SkeletonHeroInfo = styled.div`
   align-content: center;
   justify-items: start;
   gap: 0.9rem;
-  padding: clamp(1.5rem, 5vw, 3.5rem);
+  padding: clamp(2rem, 5vw, 4.5rem);
+
+  @media (max-width: 760px) {
+    padding: 1.8rem 1.5rem 2rem;
+  }
 `;
 
 export const SkeletonBadges = styled.div`
@@ -42,8 +54,8 @@ export const SkeletonContent = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   align-items: start;
-  gap: 1.25rem;
-  margin-top: 2rem;
+  gap: 1rem;
+  margin-top: 1.4rem;
 
   @media (max-width: 820px) {
     grid-template-columns: 1fr;
@@ -60,12 +72,12 @@ export const SkeletonSection = styled.div`
   display: grid;
   align-content: start;
   gap: 1rem;
-  min-height: 150px;
-  padding: clamp(1.2rem, 3vw, 1.8rem);
-  border: 1px solid ${({ theme }) => theme.colors.line};
-  border-radius: 16px;
-  background: ${({ theme }) => theme.colors.paper};
-  box-shadow: 0 5px 20px #202b2608;
+  min-height: 130px;
+  padding: clamp(1.25rem, 3vw, 1.9rem);
+
+  &:not(:last-child) {
+    border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  }
 `;
 
 export const SkeletonFacts = styled.div`

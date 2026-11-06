@@ -15,7 +15,6 @@ import {
   Artwork,
   ArtworkColumn,
   Authorship,
-  BackLink,
   Badge,
   Badges,
   CommonName,
@@ -49,9 +48,6 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
 
   return (
     <>
-      <BackLink href={`/catalog${window.location.search}`}>
-        ← Voltar ao catálogo
-      </BackLink>
       <Hero $hasImage={Boolean(selectedPhoto)}>
         {selectedPhoto && (
           <ArtworkColumn>

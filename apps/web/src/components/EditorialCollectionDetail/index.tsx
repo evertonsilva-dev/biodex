@@ -5,6 +5,7 @@ import { getSpeciesByIds } from '../../api/species';
 import { useEditorialCollection } from '../../hooks/useEditorialCollection';
 import { SpeciesCard } from '../SpeciesCard';
 import { TopBar } from '../TopBar';
+import { PageNavigation } from '../PageNavigation';
 
 const Page = styled.main`
   width: min(1200px, calc(100% - 3rem));
@@ -157,6 +158,15 @@ export function EditorialCollectionDetail({ slug }: EditorialCollectionDetailPro
   return (
     <Page>
       <TopBar label="COLEÇÃO EDITORIAL" />
+      <PageNavigation
+        items={[
+          { label: 'Catálogo', href: '/catalog' },
+          { label: 'Coleções editoriais', href: '/#colecoes' },
+          { label: collection?.title || 'Coleção editorial' },
+        ]}
+        backHref="/#colecoes"
+        backLabel="Voltar às coleções"
+      />
 
       {collectionQuery.isPending && (
         <Status role="status">Carregando coleção…</Status>

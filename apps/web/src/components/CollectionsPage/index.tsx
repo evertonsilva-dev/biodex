@@ -8,6 +8,7 @@ import { SpeciesCard } from "../SpeciesCard";
 import { CollectionMenu } from "./CollectionMenu";
 import { ConfirmDelete } from "./ConfirmDelete";
 import { TopBar } from "../TopBar";
+import { PageNavigation } from "../PageNavigation";
 import type { CollectionsPageProps } from "./types";
 import {
   Action,
@@ -52,13 +53,22 @@ function deckPosition(collectionId: string, speciesId: string, index: number) {
 }
 
 export function CollectionsPage({ collectionId }: CollectionsPageProps) {
-  const { collections, createCollection, renameCollection, deleteCollection } =
-    useCollections();
+  const {
+    collections,
+    createCollection,
+    deleteCollection,
+    isLoading,
+    renameCollection,
+    syncError,
+  } = useCollections();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const collection = collections.find((item) => item.id === collectionId);
+  const collectionSpeciesIds = collection
+    ? collection.speciesIds ?? collection.species.map((species) => species.documentId)
+    : [];
   const isShared = collectionId === "shared";
   const sharedName =
     new URLSearchParams(window.location.search).get("name")?.trim() ||
@@ -92,12 +102,12 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
       .filter((species) => species !== undefined);
   }, [sharedIds, sharedSpeciesQuery.data]);
 
-  function submitCreate(event: FormEvent<HTMLFormElement>) {
+  async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
     try {
-      const created = createCollection(trimmed);
+      const created = await createCollection(trimmed);
       window.location.href = `/collections/${encodeURIComponent(created.id)}`;
     } catch (reason) {
       setError(
@@ -108,11 +118,11 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     }
   }
 
-  function submitRename(event: FormEvent<HTMLFormElement>) {
+  async function submitRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!collection || !name.trim()) return;
     try {
-      renameCollection(collection.id, name);
+      await renameCollection(collection.id, name);
       setName("");
       setError("");
     } catch (reason) {
@@ -124,16 +134,31 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     }
   }
 
+  async function removeCollection(id: string) {
+    try {
+      await deleteCollection(id);
+      if (collectionId === id) window.location.href = "/collections";
+      setError("");
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Não foi possível excluir a coleção.",
+      );
+    }
+  }
+
   async function share() {
     if (!collection) return;
-    if (collection.species.length > MAX_SHARED_SPECIES) {
+    if (collectionSpeciesIds.length > MAX_SHARED_SPECIES) {
       setError(`O compartilhamento aceita até ${MAX_SHARED_SPECIES} espécies.`);
       return;
     }
     const url = new URL("/collections/shared", window.location.origin);
     url.searchParams.set("name", collection.name);
-    for (const species of collection.species)
-      url.searchParams.append("species", species.documentId);
+    for (const id of collectionSpeciesIds) {
+      url.searchParams.append("species", id);
+    }
     try {
       await navigator.clipboard.writeText(url.toString());
       setCopied(true);
@@ -147,10 +172,33 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     }
   }
 
+  if (!isShared && isLoading) {
+    return (
+      <Page>
+        <TopBar label="COLEÇÕES DE ESPÉCIES" />
+        <PageNavigation
+          items={[{ label: "Catálogo", href: "/catalog" }, { label: "Coleções" }]}
+          backHref="/catalog"
+          backLabel="Voltar ao catálogo"
+        />
+        <Notice>Carregando e sincronizando suas coleções…</Notice>
+      </Page>
+    );
+  }
+
   if (isShared) {
     return (
       <Page>
         <TopBar label="COLEÇÃO COMPARTILHADA" />
+        <PageNavigation
+          items={[
+            { label: "Catálogo", href: "/catalog" },
+            { label: "Coleção compartilhada" },
+            { label: sharedName },
+          ]}
+          backHref="/catalog"
+          backLabel="Voltar ao catálogo"
+        />
         <Heading>
           <div>
             <Eyebrow>Uma seleção do Biodex</Eyebrow>
@@ -198,6 +246,15 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     return (
       <Page>
         <TopBar label="COLEÇÕES DE ESPÉCIES" />
+        <PageNavigation
+          items={[
+            { label: "Catálogo", href: "/catalog" },
+            { label: "Coleções", href: "/collections" },
+            { label: "Coleção não encontrada" },
+          ]}
+          backHref="/collections"
+          backLabel="Voltar às coleções"
+        />
         <Heading>
           <div>
             <Eyebrow>Suas descobertas</Eyebrow>
@@ -216,13 +273,22 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
     return (
       <Page>
         <TopBar label="COLEÇÃO DE ESPÉCIES" />
+        <PageNavigation
+          items={[
+            { label: "Catálogo", href: "/catalog" },
+            { label: "Coleções", href: "/collections" },
+            { label: collection.name },
+          ]}
+          backHref="/collections"
+          backLabel="Voltar às coleções"
+        />
         <Heading>
           <div>
             <Eyebrow>Sua biblioteca pessoal</Eyebrow>
             <h1>{collection.name}</h1>
             <p>
-              {collection.species.length}{" "}
-              {collection.species.length === 1
+              {collectionSpeciesIds.length}{" "}
+              {collectionSpeciesIds.length === 1
                 ? "espécie salva"
                 : "espécies salvas"}{" "}
               nesta coleção.
@@ -233,7 +299,7 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
                 aria-label={copied ? "Link copiado" : "Compartilhar coleção"}
                 title={copied ? "Link copiado" : "Compartilhar coleção"}
                 onClick={() => void share()}
-                disabled={collection.species.length === 0}
+                disabled={collectionSpeciesIds.length === 0}
               >
                 {copied ? (
                   <Check size={18} aria-hidden="true" />
@@ -253,6 +319,7 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
             </CollectionIconActions>
           </div>
         </Heading>
+        {syncError && <ErrorMessage role="alert">{syncError}</ErrorMessage>}
         <InlineForm onSubmit={submitRename}>
           <input
             type="text"
@@ -270,18 +337,9 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
         {showDeleteConfirm && (
           <ConfirmDelete
             name={collection.name}
-            onConfirm={() => {
+            onConfirm={async () => {
               setShowDeleteConfirm(false);
-              try {
-                deleteCollection(collection.id);
-                window.location.href = "/collections";
-              } catch (reason) {
-                setError(
-                  reason instanceof Error
-                    ? reason.message
-                    : "Não foi possível excluir a coleção.",
-                );
-              }
+              await removeCollection(collection.id);
             }}
             onCancel={() => setShowDeleteConfirm(false)}
           />
@@ -304,6 +362,11 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
   return (
     <Page>
       <TopBar label="COLEÇÕES DE ESPÉCIES" />
+      <PageNavigation
+        items={[{ label: "Catálogo", href: "/catalog" }, { label: "Coleções" }]}
+        backHref="/catalog"
+        backLabel="Voltar ao catálogo"
+      />
       <Heading>
         <div>
           <Eyebrow>Organize suas descobertas</Eyebrow>
@@ -314,6 +377,7 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
           </p>
         </div>
       </Heading>
+      {syncError && <ErrorMessage role="alert">{syncError}</ErrorMessage>}
       <CreateForm onSubmit={submitCreate}>
         <input
           type="text"
@@ -347,17 +411,7 @@ export function CollectionsPage({ collectionId }: CollectionsPageProps) {
                 </div>
                 <CollectionMenu
                   name={item.name}
-                  onDelete={() => {
-                    try {
-                      deleteCollection(item.id);
-                    } catch (reason) {
-                      setError(
-                        reason instanceof Error
-                          ? reason.message
-                          : "Não foi possível excluir a coleção.",
-                      );
-                    }
-                  }}
+                  onDelete={() => void removeCollection(item.id)}
                 />
               </header>
               <DeckStage

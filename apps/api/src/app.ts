@@ -4,19 +4,31 @@ import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import { createCatalogRouter } from './routes/catalog.routes.js';
 import { createEditorialCollectionsRouter } from './routes/editorial-collections.routes.js';
+import { createUserCollectionsRouter } from './routes/user-collections.routes.js';
 import { errorHandler, notFoundHandler, HttpError } from './http/errors.js';
 import type { ApiEnvironment } from './config/env.js';
 import type { CatalogController } from './http/catalog.types.js';
 import type { EditorialCollectionsService } from './catalog/services/editorial-collections.js';
+import type { UserCollectionsService } from './collections/user-collections.js';
+import type { AccessTokenVerifier } from './auth/token-verifier.js';
 
 interface CreateAppOptions {
   catalog: CatalogController;
   editorialCollections: EditorialCollectionsService;
+  userCollections: UserCollectionsService;
+  verifyAccessToken: AccessTokenVerifier | null;
   healthCheck: () => Promise<boolean>;
   config: Pick<ApiEnvironment, 'corsOrigins'>;
 }
 
-export function createApp({ catalog, editorialCollections, healthCheck, config }: CreateAppOptions) {
+export function createApp({
+  catalog,
+  editorialCollections,
+  userCollections,
+  verifyAccessToken,
+  healthCheck,
+  config,
+}: CreateAppOptions) {
   const app = express();
   const allowedOrigins = new Set(config.corsOrigins);
 
@@ -27,8 +39,8 @@ export function createApp({ catalog, editorialCollections, healthCheck, config }
     origin(origin, callback) {
       callback(null, !origin || allowedOrigins.has(origin));
     },
-    methods: ['GET', 'OPTIONS'],
-    allowedHeaders: ['Accept', 'Content-Type'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Accept', 'Authorization', 'Content-Type'],
     maxAge: 86400,
   }));
   app.use(pinoHttp({
@@ -38,6 +50,7 @@ export function createApp({ catalog, editorialCollections, healthCheck, config }
     response.setHeader('Cache-Control', 'no-store');
     next();
   });
+  app.use(express.json({ limit: '128kb' }));
 
   app.get('/health', async (_request, response) => {
     if (!await healthCheck()) {
@@ -47,6 +60,10 @@ export function createApp({ catalog, editorialCollections, healthCheck, config }
   });
   app.use('/api/catalog', createCatalogRouter(catalog));
   app.use('/api/editorial-collections', createEditorialCollectionsRouter(editorialCollections));
+  app.use(
+    '/api/collections',
+    createUserCollectionsRouter(userCollections, verifyAccessToken),
+  );
   app.use(notFoundHandler);
   app.use(errorHandler);
 
