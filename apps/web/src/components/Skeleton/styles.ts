@@ -14,17 +14,25 @@ export const SkeletonBlock = styled.div<SkeletonProps>`
   height: ${({ $height }) => $height};
   overflow: hidden;
   border-radius: ${({ $radius }) => $radius ?? '6px'};
-  background: ${({ theme }) => `${theme.colors.line}80`};
+  background: ${({ $tone, theme }) => {
+    if ($tone === 'forest') {
+      return 'color-mix(in srgb, #304b3b 86%, #fff8eb)';
+    }
+
+    if ($tone === 'on-dark') {
+      return 'rgba(255, 248, 235, 0.16)';
+    }
+
+    return `color-mix(in srgb, ${theme.colors.green} 9%, ${theme.colors.background})`;
+  }};
 
   &::after {
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      ${({ theme }) => `${theme.colors.paper}b8`},
-      transparent
-    );
+    background: ${({ $tone, theme }) =>
+      $tone === 'on-dark' || $tone === 'forest'
+        ? 'linear-gradient(90deg, transparent, rgba(255, 248, 235, 0.28), transparent)'
+        : `linear-gradient(90deg, transparent, color-mix(in srgb, ${theme.colors.paper} 68%, #d17c63), transparent)`};
     content: '';
     transform: translateX(-100%);
     animation: ${shimmer} 1.5s ease-in-out infinite;

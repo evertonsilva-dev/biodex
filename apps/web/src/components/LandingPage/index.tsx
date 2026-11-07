@@ -41,6 +41,7 @@ import {
   Tag,
 } from './styles';
 import { EditorialCollectionsGrid } from '../EditorialCollectionsGrid';
+import { AccountMenu } from '../AccountMenu';
 
 const features = [
   {
@@ -120,6 +121,7 @@ export function LandingPage() {
           <HeaderLink href="#colecoes">Coleções</HeaderLink>
           <HeaderLink href="#explore">O que você encontra</HeaderLink>
           <HeaderAction href="/catalog">Explorar catálogo <Arrow aria-hidden="true">↗</Arrow></HeaderAction>
+          <AccountMenu />
         </Nav>
       </Header>
 

@@ -14,6 +14,8 @@ export function useAppRoute(): AppRoute {
     }
   }
   const isErrorPage = pathname === '/error';
+  const isLogin = pathname === '/login' || pathname === '/login/';
+  const isProfile = pathname === '/profile' || pathname === '/profile/';
   const isLanding = pathname === '/' || pathname === '';
   const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
   const editorialCollectionMatch = pathname.match(/^\/collections\/editorial\/([^/]+)\/?$/);
@@ -40,6 +42,8 @@ export function useAppRoute(): AppRoute {
   useEffect(() => {
     if (
       !isErrorPage
+      && !isLogin
+      && !isProfile
       && !isLanding
       && !isCatalog
       && !isCollections
@@ -48,9 +52,11 @@ export function useAppRoute(): AppRoute {
     ) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isLanding, isCatalog, isCollections, isEditorialCollection, externalId]);
+  }, [isErrorPage, isLogin, isProfile, isLanding, isCatalog, isCollections, isEditorialCollection, externalId]);
 
   if (isErrorPage) return { page: 'error' };
+  if (isLogin) return { page: 'login' };
+  if (isProfile) return { page: 'profile' };
   if (externalId !== null) return { page: 'species', externalId };
   if (editorialCollectionSlug !== null) {
     return { page: 'editorial-collection', slug: editorialCollectionSlug };

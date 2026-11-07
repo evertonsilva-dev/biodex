@@ -26,13 +26,33 @@ export const Logo = styled.a`
 export const Label = styled.span`
   color: ${({ theme }) => theme.colors.muted};
   font-size: 0.78rem;
+
+  @media (max-width: 700px) {
+    display: none;
+  }
 `;
 
 export const HeaderNav = styled.nav`
   display: flex;
   align-items: center;
-  gap: .55rem;
-  color: ${({ theme }) => theme.colors.line};
+  gap: .9rem;
+  color: ${({ theme }) => theme.colors.muted};
+
+  @media (max-width: 600px) {
+    gap: .65rem;
+  }
+`;
+
+export const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  min-width: 0;
+
+  @media (max-width: 600px) {
+    gap: 0.6rem;
+  }
 `;
 
 export const HeaderNavLink = styled.a`

@@ -15,25 +15,6 @@ export const Page = styled.main<{ $kingdomColor: string }>`
   }
 `;
 
-export const BackLink = styled.a`
-  display: inline-flex;
-  min-height: 54px;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-  border-radius: 999px;
-  color: var(--kingdom-color);
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-decoration: none;
-  margin-top: 10px;
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease,
-    background 180ms ease;
-`;
-
 export const Hero = styled.section<{ $hasImage: boolean }>`
   position: relative;
   display: grid;

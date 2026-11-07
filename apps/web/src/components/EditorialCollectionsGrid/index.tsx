@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { getEditorialCollections } from '../../api/editorial-collections';
+import { Skeleton } from '../Skeleton';
 import { EditorialCollectionCard } from '../EditorialCollectionCard';
 import {
+  CardSkeleton,
+  CardSkeletonFooter,
+  DeckCardSkeleton,
+  DeckSkeleton,
   EmptyState,
   ErrorState,
   Grid,
@@ -24,7 +29,32 @@ export function EditorialCollectionsGrid() {
       </div>
 
       {collectionsQuery.isPending && (
-        <EmptyState role="status">Carregando coleções…</EmptyState>
+        <Grid role="status" aria-label="Carregando coleções editoriais">
+          {[0, 1, 2].map((index) => (
+            <CardSkeleton key={index} aria-hidden="true">
+              <Skeleton $width="8rem" $height="0.62rem" $radius="999px" />
+              <DeckSkeleton>
+                {[-1, 0, 1].map((layer) => (
+                  <DeckCardSkeleton
+                    key={layer}
+                    $offset={layer * 17}
+                    $rotation={layer * 8}
+                    $layer={layer + 2}
+                  >
+                    <Skeleton $height="100%" $radius="inherit" $tone="forest" />
+                  </DeckCardSkeleton>
+                ))}
+              </DeckSkeleton>
+              <Skeleton $width="76%" $height="1.55rem" $radius="4px" />
+              <Skeleton $height="0.75rem" />
+              <Skeleton $width="82%" $height="0.75rem" />
+              <CardSkeletonFooter>
+                <Skeleton $width="7rem" $height="0.62rem" />
+                <Skeleton $width="5.2rem" $height="0.62rem" />
+              </CardSkeletonFooter>
+            </CardSkeleton>
+          ))}
+        </Grid>
       )}
 
       {collectionsQuery.isError && (

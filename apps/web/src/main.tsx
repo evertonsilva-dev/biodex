@@ -5,6 +5,7 @@ import { ThemeProvider } from 'styled-components';
 import { App } from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { CollectionsProvider } from './collections/CollectionsProvider';
+import { AuthProvider } from './auth/AuthProvider';
 import { GlobalStyle } from './styles/GlobalStyle';
 import { theme } from './styles/theme';
 
@@ -24,9 +25,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider theme={theme}>
         <GlobalStyle />
         <AppErrorBoundary>
-          <CollectionsProvider>
-            <App />
-          </CollectionsProvider>
+          <AuthProvider>
+            <CollectionsProvider>
+              <App />
+            </CollectionsProvider>
+          </AuthProvider>
         </AppErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>

@@ -109,6 +109,10 @@ export const HeaderAction = styled.a`
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 
   &:hover { transform: translateY(-2px); background: #23332a; color: #fffaf0; }
+
+  @media (max-width: 560px) {
+    display: none;
+  }
 `;
 
 export const Arrow = styled.span`

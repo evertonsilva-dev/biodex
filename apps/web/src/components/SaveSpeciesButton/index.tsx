@@ -7,7 +7,12 @@ import { Popover, SaveButton, SaveControl } from './styles';
 
 export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButtonProps) {
   const controlRef = useRef<HTMLDivElement>(null);
-  const { collections, createCollection, toggleSpecies } = useCollections();
+  const {
+    collections,
+    createCollection,
+    isLoading,
+    toggleSpecies,
+  } = useCollections();
   const collectionSpecies = {
     id: species.id,
     documentId: species.documentId,
@@ -25,7 +30,8 @@ export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButt
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const saved = collections.some((collection) =>
-    collection.species.some((item) => item.documentId === collectionSpecies.documentId),
+    (collection.speciesIds ?? collection.species.map((item) => item.documentId))
+      .includes(collectionSpecies.documentId),
   );
 
   useEffect(() => {
@@ -49,11 +55,11 @@ export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButt
     };
   }, [open]);
 
-  function create(event: FormEvent<HTMLFormElement>) {
+  async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) return;
     try {
-      createCollection(name, collectionSpecies);
+      await createCollection(name, collectionSpecies);
       setName('');
       setError('');
     } catch (reason) {
@@ -65,6 +71,7 @@ export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButt
     <SaveControl ref={controlRef} $variant={variant}>
       <SaveButton
         type="button"
+        disabled={isLoading}
         aria-expanded={open}
         aria-label={`${saved ? 'Gerenciar coleções de' : 'Salvar'} ${species.commonName}`}
         title={saved ? 'Gerenciar coleções' : 'Salvar em uma coleção'}
@@ -86,10 +93,12 @@ export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButt
             <label key={collection.id}>
               <input
                 type="checkbox"
-                checked={collection.species.some((item) => item.documentId === collectionSpecies.documentId)}
-                onChange={() => {
+                disabled={isLoading}
+                checked={(collection.speciesIds ?? collection.species.map((item) => item.documentId))
+                  .includes(collectionSpecies.documentId)}
+                onChange={async () => {
                   try {
-                    toggleSpecies(collection.id, collectionSpecies);
+                    await toggleSpecies(collection.id, collectionSpecies);
                     setError('');
                   } catch (reason) {
                     setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar a coleção.');
@@ -103,13 +112,15 @@ export function SaveSpeciesButton({ species, variant = 'card' }: SaveSpeciesButt
             <input
               type="text"
               value={name}
+              disabled={isLoading}
               onChange={(event) => setName(event.target.value)}
               placeholder="Nova coleção"
               aria-label="Nome da nova coleção"
               maxLength={60}
             />
-            <button type="submit">Criar</button>
+            <button type="submit" disabled={isLoading}>Criar</button>
           </form>
+          {isLoading && <p>Sincronizando coleções…</p>}
           {error && <p role="alert">{error}</p>}
           <a href="/collections">Ver coleções</a>
         </Popover>

@@ -7,6 +7,7 @@ import { CatalogSearch } from '../CatalogSearch';
 import { CatalogResults } from '../CatalogResults';
 import type { CatalogActiveFilter } from '../CatalogResults/types';
 import { TopBar } from '../TopBar';
+import { PageNavigation } from '../PageNavigation';
 import type { BiodexSelectOption } from '../BiodexSelect';
 import { getEnvironmentLabel, getEnvironmentOptions } from '../../utils/environment-label';
 import {
@@ -86,6 +87,11 @@ export function CatalogPage() {
   return (
     <Page>
         <TopBar label="UM ATLAS VISUAL DA VIDA" />
+        <PageNavigation
+          items={[{ label: "Catálogo" }]}
+          backHref="/"
+          backLabel="Voltar ao início"
+        />
 
         <Hero>
           <div>

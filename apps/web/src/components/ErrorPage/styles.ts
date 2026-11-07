@@ -1,19 +1,27 @@
 import styled from 'styled-components';
 
 export const Page = styled.main`
+  width: min(1200px, calc(100% - 3rem));
   min-height: 100vh;
+  margin: 0 auto;
+  padding: 2rem 0 5rem;
   display: flex;
   flex-direction: column;
   background:
     radial-gradient(ellipse at 50% 35%, #3e755712, transparent 55%),
     ${({ theme }) => theme.colors.background};
+
+  @media (max-width: 600px) {
+    width: min(100% - 2rem, 1200px);
+    padding-top: 1.25rem;
+  }
 `;
 
 export const Hero = styled.section`
   display: grid;
   place-items: center;
   flex: 1;
-  padding: clamp(2rem, 8vw, 4rem) 1rem;
+  padding: clamp(2rem, 8vw, 4rem) 0;
 `;
 
 export const Container = styled.div`
