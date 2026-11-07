@@ -4,6 +4,8 @@ const authUrl = import.meta.env.VITE_NEON_AUTH_URL?.trim();
 const neonAuth = authUrl ? createInternalNeonAuth(authUrl) : null;
 
 export const authClient = neonAuth?.adapter ?? null;
+export const isGoogleLoginEnabled =
+  import.meta.env.VITE_GOOGLE_LOGIN_ENABLED !== 'false';
 
 export async function getAuthAccessToken() {
   if (!neonAuth) {

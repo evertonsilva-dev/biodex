@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { authClient, getAuthAccessToken } from './auth-client';
+import {
+  authClient,
+  getAuthAccessToken,
+  isGoogleLoginEnabled,
+} from './auth-client';
 
 export interface AuthUser {
   id: string;
@@ -21,6 +25,7 @@ interface AuthContextValue {
   status: AuthStatus;
   error: string | null;
   isConfigured: boolean;
+  isGoogleLoginEnabled: boolean;
   signInWithGoogle: (callbackURL: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<boolean>;
@@ -80,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async (callbackURL: string) => {
     if (!authClient) throw new Error('O login não está configurado neste ambiente.');
+    if (!isGoogleLoginEnabled) {
+      throw new Error('O login com Google ainda não está configurado para produção.');
+    }
     setError(null);
     try {
       const result = await authClient.signIn.social({
@@ -153,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       error,
       isConfigured: authClient !== null,
+      isGoogleLoginEnabled,
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
