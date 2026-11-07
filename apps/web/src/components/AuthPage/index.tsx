@@ -44,7 +44,16 @@ function GoogleMark() {
 }
 
 export function AuthPage() {
-  const { user, status, error, isConfigured, signInWithEmail, signInWithGoogle, signUpWithEmail } = useAuth();
+  const {
+    user,
+    status,
+    error,
+    isConfigured,
+    isGoogleLoginEnabled,
+    signInWithEmail,
+    signInWithGoogle,
+    signUpWithEmail,
+  } = useAuth();
   const params = new URLSearchParams(window.location.search);
   const isSignUp = params.get('mode') === 'signup';
   const returnTo = getSafeReturnTo();
@@ -131,17 +140,21 @@ export function AuthPage() {
               )}
               {(formError || error) && <ErrorMessage role="alert">{formError || error}</ErrorMessage>}
               {notice && <InfoMessage role="status">{notice}</InfoMessage>}
-              <GoogleAction>
-                <GoogleButton
-                  type="button"
-                  onClick={() => void continueWithGoogle()}
-                  disabled={!isConfigured || isSubmitting || status === 'loading'}
-                >
-                  <GoogleMark />
-                  Continuar com Google
-                </GoogleButton>
-              </GoogleAction>
-              <Divider><span>ou use seu e-mail</span></Divider>
+              {isGoogleLoginEnabled && (
+                <>
+                  <GoogleAction>
+                    <GoogleButton
+                      type="button"
+                      onClick={() => void continueWithGoogle()}
+                      disabled={!isConfigured || isSubmitting || status === 'loading'}
+                    >
+                      <GoogleMark />
+                      Continuar com Google
+                    </GoogleButton>
+                  </GoogleAction>
+                  <Divider><span>ou use seu e-mail</span></Divider>
+                </>
+              )}
               <form onSubmit={(event) => void submit(event)}>
                 {isSignUp && (
                   <Field>
