@@ -10,6 +10,7 @@ const editorialCollection = {
   introduction: 'Quatro espécies de ambientes diferentes.',
   featuredImageUrl: null,
   speciesIds: ['KF8T'],
+  steps: [],
   order: 1,
 };
 const userCollection = {

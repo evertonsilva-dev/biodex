@@ -38,8 +38,8 @@ export function useSpeciesCard(species: Species): UseSpeciesCardResult {
       ).toString()
     : undefined;
   const imageQuery = useQuery({
-    queryKey: ['species-image', species.scientificName, 'hierarchical-v2'],
-    queryFn: ({ signal }) => getSpeciesImage(species.scientificName, signal),
+    queryKey: ['species-image', species.id, 'hierarchical-v3'],
+    queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal),
     enabled: isNearViewport && !editorialImage,
     staleTime: (query) => query.state.data?.url
       ? 30 * 24 * 60 * 60 * 1000

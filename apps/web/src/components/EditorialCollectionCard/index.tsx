@@ -197,7 +197,8 @@ export function EditorialCollectionCard({ collection }: EditorialCollectionCardP
   return (
     <Card>
       <CollectionNumber>
-        {String(collection.order).padStart(2, '0')} / COLEÇÃO EDITORIAL
+        {String(collection.order).padStart(2, '0')} /{' '}
+        {collection.steps.length > 0 ? 'TRILHA DE DESCOBERTA' : 'COLEÇÃO EDITORIAL'}
       </CollectionNumber>
       <DeckStage
         role="group"
@@ -235,9 +236,14 @@ export function EditorialCollectionCard({ collection }: EditorialCollectionCardP
       </Title>
       <Description>{collection.description}</Description>
       <CollectionMeta>
-        <span>{collection.speciesIds.length} cartas selecionadas</span>
+        <span>
+          {collection.steps.length > 0
+            ? `${collection.steps.length} passos`
+            : `${collection.speciesIds.length} cartas selecionadas`}
+        </span>
         <CollectionLink href={collectionHref}>
-          Abrir coleção <span aria-hidden="true">↗</span>
+          {collection.steps.length > 0 ? 'Começar trilha' : 'Abrir coleção'}
+          {' '}<span aria-hidden="true">↗</span>
         </CollectionLink>
       </CollectionMeta>
     </Card>

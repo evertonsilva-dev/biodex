@@ -12,8 +12,8 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const forceEnrichmentRefresh = useRef(false);
   const imageQuery = useQuery({
-    queryKey: ['species-image', species.scientificName, 'detail-gallery-v1'],
-    queryFn: ({ signal }) => getSpeciesImage(species.scientificName, signal, true),
+    queryKey: ['species-image', species.id, 'detail-gallery-v2'],
+    queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal, true),
     staleTime: (query) => query.state.data?.url
       ? 30 * 24 * 60 * 60 * 1000
       : 5 * 60 * 1000,

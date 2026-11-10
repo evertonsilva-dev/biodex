@@ -304,6 +304,133 @@ test("catalog species expose their source taxon identifier", async () => {
   assert.match(database.queries[2].sql, /t\.external_id, t\.source_id/);
 });
 
+test("catalog image lookup uses the taxon ID before the scientific-name fallback", async () => {
+  const database = new CapturingDatabase(true);
+  const baseQuery = database.query.bind(database);
+  database.query = (async (sql: string, bindings: unknown[] = []) => {
+    if (sql.includes("FROM col_taxon_usage") && sql.includes("external_id = $1")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          external_id: "col:42",
+          scientific_name: "Panthera leo",
+          genus: "Panthera",
+          family: "Felidae",
+          taxon_order: "Carnivora",
+          taxon_class: "Mammalia",
+          phylum: "Chordata",
+          kingdom: "Animalia",
+          is_virus: false,
+        }],
+      };
+    }
+    if (sql.includes("FROM col_species_image_cache")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          image_url: "https://example.org/lion.jpg",
+          source: "GBIF",
+          attribution: "Photographer",
+          license: "CC BY",
+          reference_url: "https://example.org/record",
+          is_representative: false,
+          representative_rank: null,
+          representative_taxon_name: null,
+          fallback_version: 1,
+          gallery_images: [],
+          gallery_version: 0,
+        }],
+      };
+    }
+    return baseQuery(sql, bindings);
+  }) as typeof database.query;
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+  const context = createContext({
+    taxonId: "col:42",
+    scientificName: "Wrong name",
+  });
+
+  await controller.image(context);
+
+  const taxonQuery = database.queries.find((query) =>
+    query.sql.includes("external_id = $1"),
+  );
+  const cacheQuery = database.queries.find((query) =>
+    query.sql.includes("scientific_name_key = $1"),
+  );
+  assert.deepEqual(taxonQuery?.bindings, ["col:42"]);
+  assert.equal(cacheQuery?.bindings[0], "v5:taxon:col:42");
+  assert.equal(
+    (context.body as { data: { url: string } }).data.url,
+    "https://example.org/lion.jpg",
+  );
+});
+
+test("catalog image lookup falls back to scientific name when the taxon ID is unknown", async () => {
+  const database = new CapturingDatabase(true);
+  const baseQuery = database.query.bind(database);
+  database.query = (async (sql: string, bindings: unknown[] = []) => {
+    if (sql.includes("FROM col_taxon_usage") && sql.includes("external_id = $1")) {
+      database.queries.push({ sql, bindings });
+      return { rows: [] };
+    }
+    if (sql.includes("FROM col_taxon_usage") && sql.includes("regexp_replace")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          external_id: "col:42",
+          scientific_name: "Panthera leo",
+          genus: "Panthera",
+          family: "Felidae",
+          taxon_order: "Carnivora",
+          taxon_class: "Mammalia",
+          phylum: "Chordata",
+          kingdom: "Animalia",
+          is_virus: false,
+        }],
+      };
+    }
+    if (sql.includes("FROM col_species_image_cache")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          image_url: "https://example.org/lion.jpg",
+          source: "GBIF",
+          attribution: "Photographer",
+          license: "CC BY",
+          reference_url: "https://example.org/record",
+          is_representative: false,
+          representative_rank: null,
+          representative_taxon_name: null,
+          fallback_version: 1,
+          gallery_images: [],
+          gallery_version: 0,
+        }],
+      };
+    }
+    return baseQuery(sql, bindings);
+  }) as typeof database.query;
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+
+  await controller.image(createContext({
+    taxonId: "unknown:1",
+    scientificName: "Panthera leo",
+  }));
+
+  const nameQuery = database.queries.find((query) =>
+    query.sql.includes("regexp_replace"),
+  );
+  assert.deepEqual(nameQuery?.bindings, ["Panthera leo", "Panthera leo"]);
+  const cacheQuery = database.queries.find((query) =>
+    query.sql.includes("scientific_name_key = $1"),
+  );
+  assert.equal(cacheQuery?.bindings[0], "v5:taxon:col:42");
+});
+
 test("catalog routes report incomplete schema as unavailable", async () => {
   const database = new CapturingDatabase(false);
   const controller = createCatalogController({

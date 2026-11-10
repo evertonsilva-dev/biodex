@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import styled from 'styled-components';
 import { getSpeciesByIds } from '../../api/species';
 import { useEditorialCollection } from '../../hooks/useEditorialCollection';
+import { EditorialTrailReader } from '../EditorialTrailReader';
 import { SpeciesCard } from '../SpeciesCard';
 import { TopBar } from '../TopBar';
 import { PageNavigation } from '../PageNavigation';
@@ -137,6 +138,9 @@ interface EditorialCollectionDetailProps {
 export function EditorialCollectionDetail({ slug }: EditorialCollectionDetailProps) {
   const collectionQuery = useEditorialCollection(slug);
   const collection = collectionQuery.data;
+  const isTrail = Boolean(collection?.steps.length);
+  const contentLabel = isTrail ? 'Trilhas de descoberta' : 'Coleções editoriais';
+  const contentHref = isTrail ? '/#trilhas' : '/#colecoes';
   const speciesQuery = useQuery({
     queryKey: ['editorial-collection-species', collection?.id],
     queryFn: ({ signal }) => {
@@ -157,15 +161,15 @@ export function EditorialCollectionDetail({ slug }: EditorialCollectionDetailPro
 
   return (
     <Page>
-      <TopBar label="COLEÇÃO EDITORIAL" />
+      <TopBar label={isTrail ? 'TRILHA DE DESCOBERTA' : 'COLEÇÃO EDITORIAL'} />
       <PageNavigation
         items={[
           { label: 'Catálogo', href: '/catalog' },
-          { label: 'Coleções editoriais', href: '/#colecoes' },
+          { label: contentLabel, href: contentHref },
           { label: collection?.title || 'Coleção editorial' },
         ]}
-        backHref="/#colecoes"
-        backLabel="Voltar às coleções"
+        backHref={contentHref}
+        backLabel={isTrail ? 'Voltar às trilhas' : 'Voltar às coleções'}
       />
 
       {collectionQuery.isPending && (
@@ -181,53 +185,71 @@ export function EditorialCollectionDetail({ slug }: EditorialCollectionDetailPro
           <Heading>
             <div>
               <Eyebrow>
-                Coleção {String(collection.order).padStart(2, '0')} · Seleção Biodex
+                {isTrail
+                  ? `Trilha ${String(collection.order).padStart(2, '0')} · ${collection.steps.length} passos`
+                  : `Coleção ${String(collection.order).padStart(2, '0')} · Seleção Biodex`}
               </Eyebrow>
               <h1>{collection.title}</h1>
               <Description>{collection.description}</Description>
             </div>
             <CollectionCount>
-              {collection.speciesIds.length}{' '}
-              {collection.speciesIds.length === 1 ? 'carta' : 'cartas'}
+              {isTrail
+                ? `${collection.steps.length} passos`
+                : `${collection.speciesIds.length} ${collection.speciesIds.length === 1 ? 'carta' : 'cartas'}`}
             </CollectionCount>
           </Heading>
 
           <Introduction>{collection.introduction}</Introduction>
 
-          <SpeciesSection>
-            <SpeciesSectionHeader>
-              <SpeciesHeading>Cartas selecionadas</SpeciesHeading>
-              <SpeciesCount>
-                {species.length} de {collection.speciesIds.length} espécies
-              </SpeciesCount>
-            </SpeciesSectionHeader>
-
-            {speciesQuery.isPending && collection.speciesIds.length > 0 && (
-              <Status role="status">Carregando espécies…</Status>
-            )}
-
-            {speciesQuery.isError && (
+          {isTrail ? (
+            speciesQuery.isError ? (
               <Status role="alert">
-                Não foi possível carregar as espécies desta coleção.
+                Não foi possível carregar as espécies desta trilha.
               </Status>
-            )}
+            ) : (
+              <EditorialTrailReader
+                key={collection.slug}
+                steps={collection.steps}
+                species={species}
+                isSpeciesLoading={speciesQuery.isPending && collection.speciesIds.length > 0}
+              />
+            )
+          ) : (
+            <SpeciesSection>
+              <SpeciesSectionHeader>
+                <SpeciesHeading>Cartas selecionadas</SpeciesHeading>
+                <SpeciesCount>
+                  {species.length} de {collection.speciesIds.length} espécies
+                </SpeciesCount>
+              </SpeciesSectionHeader>
 
-            {speciesQuery.data && species.length === 0 && (
-              <Status>Esta coleção ainda não tem cartas publicadas.</Status>
-            )}
+              {speciesQuery.isPending && collection.speciesIds.length > 0 && (
+                <Status role="status">Carregando espécies…</Status>
+              )}
 
-            {collection.speciesIds.length === 0 && (
-              <Status>Esta coleção ainda não tem cartas publicadas.</Status>
-            )}
+              {speciesQuery.isError && (
+                <Status role="alert">
+                  Não foi possível carregar as espécies desta coleção.
+                </Status>
+              )}
 
-            {species.length > 0 && (
-              <SpeciesGrid aria-label="Cartas selecionadas">
-                {species.map((item) => (
-                  <SpeciesCard key={item.documentId} species={item} />
-                ))}
-              </SpeciesGrid>
-            )}
-          </SpeciesSection>
+              {speciesQuery.data && species.length === 0 && (
+                <Status>Esta coleção ainda não tem cartas publicadas.</Status>
+              )}
+
+              {collection.speciesIds.length === 0 && (
+                <Status>Esta coleção ainda não tem cartas publicadas.</Status>
+              )}
+
+              {species.length > 0 && (
+                <SpeciesGrid aria-label="Cartas selecionadas">
+                  {species.map((item) => (
+                    <SpeciesCard key={item.documentId} species={item} />
+                  ))}
+                </SpeciesGrid>
+              )}
+            </SpeciesSection>
+          )}
         </>
       )}
     </Page>

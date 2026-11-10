@@ -993,14 +993,15 @@ export default function createCatalogController({
 
     async image(ctx) {
       await ensureCatalogReady(runtime, ctx);
-      const scientificName = parseOptionalString(
+      const taxonId = parseOptionalString(ctx.query, "taxonId", 200, ctx);
+      let scientificName = parseOptionalString(
         ctx.query,
         "scientificName",
         200,
         ctx,
       );
-      if (!scientificName) {
-        ctx.throw(400, "scientificName is required.");
+      if (!taxonId && !scientificName) {
+        ctx.throw(400, "taxonId or scientificName is required.");
       }
       const galleryParameter = parseOptionalString(
         ctx.query,
@@ -1016,7 +1017,56 @@ export default function createCatalogController({
         ctx.throw(400, "gallery must be true or false.");
       }
       const includeGallery = galleryParameter === "true";
-      const cacheKey = `${IMAGE_CACHE_VERSION}:${normalizeTaxonName(scientificName)}`;
+      type CatalogImageTaxon = TaxonImageRow & {
+        external_id: string;
+        scientific_name: string;
+      };
+      let taxon: CatalogImageTaxon | null = null;
+      if (taxonId) {
+        const taxonResult = await runtime.db.query<CatalogImageTaxon>(
+          `
+        SELECT external_id, scientific_name, genus, family, taxon_order, taxon_class,
+          phylum, kingdom, is_virus
+        FROM col_taxon_usage
+        WHERE external_id = $1
+          AND status = 'accepted'
+          AND rank = 'species'
+          AND is_catalog_species = true
+        LIMIT 1
+      `,
+          [taxonId],
+        );
+        taxon = taxonResult.rows[0] ?? null;
+      }
+      if (!taxon && scientificName) {
+        const taxonResult = await runtime.db.query<CatalogImageTaxon>(
+          `
+        SELECT external_id, scientific_name, genus, family, taxon_order, taxon_class,
+          phylum, kingdom, is_virus
+        FROM col_taxon_usage
+        WHERE status = 'accepted'
+          AND rank = 'species'
+          AND is_catalog_species = true
+          AND (
+            scientific_name = $1
+            OR regexp_replace(scientific_name, '^[×x]\\s*', '') = $2
+          )
+        LIMIT 1
+      `,
+          [scientificName, scientificName.replace(/^[×x]\s*/i, "")],
+        );
+        taxon = taxonResult.rows[0] ?? null;
+      }
+      if (taxon) {
+        scientificName = taxon.scientific_name;
+      }
+      if (!scientificName) {
+        ctx.throw(404, "Species not found.");
+      }
+      const cacheIdentity = taxon
+        ? `taxon:${taxon.external_id.toLocaleLowerCase("en")}`
+        : `name:${normalizeTaxonName(scientificName)}`;
+      const cacheKey = `${IMAGE_CACHE_VERSION}:${cacheIdentity}`;
 
       const cached = await runtime.db.query(
         `
@@ -1070,31 +1120,20 @@ export default function createCatalogController({
       let image: SpeciesImage | null = cachedImage;
       const providerErrors = [];
       let providerAttempts = 0;
-      let taxon = null;
       if (!image) {
-        const taxonResult = await runtime.db.query<TaxonImageRow>(
-          `
-        SELECT genus, family, taxon_order, taxon_class, phylum, kingdom, is_virus
-        FROM col_taxon_usage
-        WHERE status = 'accepted'
-          AND rank = 'species'
-          AND (
-            scientific_name = $1
-            OR regexp_replace(scientific_name, '^[×x]\\s*', '') = $2
-          )
-        LIMIT 1
-      `,
-          [scientificName, scientificName.replace(/^[×x]\s*/i, "")],
-        );
-        taxon = taxonResult.rows[0];
-
         const imageProviders: Array<
           (name: string) => Promise<SpeciesImage | null>
-        > = [
-          findInaturalistImage,
-          findGbifImage,
-          (name) => findCommonsImage(name, { exactName: name }),
-        ];
+        > = taxon
+          ? [
+              (name) => findGbifImage(name, taxon),
+              findInaturalistImage,
+              (name) => findCommonsImage(name, { exactName: name }),
+            ]
+          : [
+              findInaturalistImage,
+              findGbifImage,
+              (name) => findCommonsImage(name, { exactName: name }),
+            ];
         for (const findImage of imageProviders) {
           providerAttempts += 1;
           try {
@@ -1135,7 +1174,7 @@ export default function createCatalogController({
       let galleryVersion = 0;
       if (includeGallery && image) {
         try {
-          const gallery = await collectSpeciesImages(scientificName, image);
+          const gallery = await collectSpeciesImages(scientificName, image, taxon);
           galleryImages = gallery.images;
           if (gallery.errors.length > 0) {
             runtime.log.warn(
