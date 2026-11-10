@@ -1,6 +1,6 @@
 type TaxonomyLevel = 'phylum' | 'class' | 'order' | 'family' | 'genus';
 
-export const IMAGE_CACHE_VERSION = 'v4';
+export const IMAGE_CACHE_VERSION = 'v5';
 export const IMAGE_CACHE_TTL_DAYS = 180;
 export const EMPTY_IMAGE_CACHE_TTL_DAYS = 14;
 
@@ -384,8 +384,25 @@ async function findInaturalistRepresentative(searchName: string, rank: string): 
   };
 }
 
-async function findGbifImages(scientificName: string, limit = 8): Promise<SpeciesImage[]> {
+async function findGbifImages(
+  scientificName: string,
+  limit = 8,
+  taxon?: TaxonImageRow | null,
+): Promise<SpeciesImage[]> {
   const matchParams = new URLSearchParams({ name: scientificName, strict: 'true' });
+  const taxonomyParameters: Array<[string, string | null | undefined]> = [
+    ['kingdom', taxon?.kingdom],
+    ['phylum', taxon?.phylum],
+    ['class', taxon?.taxon_class],
+    ['order', taxon?.taxon_order],
+    ['family', taxon?.family],
+    ['genus', taxon?.genus],
+  ];
+  for (const [parameter, value] of taxonomyParameters) {
+    if (value !== null && value !== undefined && value.length > 0) {
+      matchParams.set(parameter, value);
+    }
+  }
   const match = await fetchJson<GbifSpeciesMatch>(`https://api.gbif.org/v1/species/match?${matchParams}`);
   const canonicalName = match.canonicalName ?? '';
   if (
@@ -432,8 +449,11 @@ async function findGbifImages(scientificName: string, limit = 8): Promise<Specie
   return images;
 }
 
-async function findGbifImage(scientificName: string): Promise<SpeciesImage | null> {
-  return (await findGbifImages(scientificName, 1))[0] ?? null;
+async function findGbifImage(
+  scientificName: string,
+  taxon?: TaxonImageRow | null,
+): Promise<SpeciesImage | null> {
+  return (await findGbifImages(scientificName, 1, taxon))[0] ?? null;
 }
 
 function matchesCommonsName(page: CommonsPage, imageInfo: CommonsImageInfo, name: string): boolean {
@@ -621,6 +641,7 @@ async function findCommonsRepresentative(taxon: TaxonImageRow): Promise<SpeciesI
 async function collectSpeciesImages(
   scientificName: string,
   primaryImage: SpeciesImage,
+  taxon?: TaxonImageRow | null,
 ): Promise<{ images: SpeciesImage[]; errors: unknown[] }> {
   const isRepresentative = primaryImage.isRepresentative === true;
   const taxonName = isRepresentative
@@ -640,7 +661,7 @@ async function collectSpeciesImages(
     () => findCommonsImage(taxonName, commonsOptions),
   ];
   if (!isRepresentative) {
-    tasks.push(() => findGbifImages(scientificName, 8));
+    tasks.push(() => findGbifImages(scientificName, 8, taxon));
   }
 
   const results = await Promise.allSettled(tasks.map((task) => task()));

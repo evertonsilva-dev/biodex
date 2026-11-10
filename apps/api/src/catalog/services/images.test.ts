@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findCommonsImage, findCommonsRepresentative } from './images.js';
+import { findCommonsImage, findCommonsRepresentative, findGbifImage } from './images.js';
 
 function commonsPage(
   index: number,
@@ -104,4 +104,51 @@ test('higher-taxonomy fallback starts with genus and marks its image representat
   assert.equal(image?.isRepresentative, true);
   assert.equal(image?.representativeRank, 'genus');
   assert.equal(image?.representativeTaxonName, 'Panthera');
+});
+
+test('GBIF species matching is constrained by the catalog taxon hierarchy', async (context) => {
+  const requests: URL[] = [];
+  context.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = new URL(input.toString());
+    requests.push(url);
+    if (url.pathname === '/v1/species/match') {
+      return Response.json({
+        rank: 'SPECIES',
+        status: 'ACCEPTED',
+        canonicalName: 'Panthera leo',
+        speciesKey: 5219404,
+      });
+    }
+    if (url.pathname === '/v1/occurrence/search') {
+      return Response.json({
+        results: [{
+          key: 123,
+          species: 'Panthera leo',
+          media: [{
+            type: 'StillImage',
+            identifier: 'https://example.org/lion.jpg',
+            license: 'https://creativecommons.org/licenses/by/4.0/',
+            creator: 'Photographer',
+          }],
+        }],
+      });
+    }
+    throw new Error(`Unexpected request: ${url.toString()}`);
+  });
+
+  const image = await findGbifImage('Panthera leo', {
+    kingdom: 'Animalia',
+    phylum: 'Chordata',
+    taxon_class: 'Mammalia',
+    taxon_order: 'Carnivora',
+    family: 'Felidae',
+    genus: 'Panthera',
+    is_virus: false,
+  });
+
+  const matchUrl = requests.find((url) => url.pathname === '/v1/species/match');
+  assert.equal(matchUrl?.searchParams.get('kingdom'), 'Animalia');
+  assert.equal(matchUrl?.searchParams.get('family'), 'Felidae');
+  assert.equal(matchUrl?.searchParams.get('genus'), 'Panthera');
+  assert.equal(image?.url, 'https://example.org/lion.jpg');
 });

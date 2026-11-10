@@ -1,5 +1,13 @@
 import type { QueryResultRow } from 'pg';
 
+export interface EditorialTrailStep {
+  speciesId: string;
+  title: string;
+  narrative: string;
+  sourceLabel: string;
+  sourceUrl: string;
+}
+
 export interface EditorialCollectionRow extends QueryResultRow {
   id: string;
   slug: string;
@@ -8,6 +16,7 @@ export interface EditorialCollectionRow extends QueryResultRow {
   introduction: string;
   featured_image_url: string | null;
   species_ids: string[];
+  steps?: EditorialTrailStep[] | null;
   order: number;
 }
 
@@ -19,6 +28,7 @@ export interface EditorialCollection {
   introduction: string;
   featuredImageUrl: string | null;
   speciesIds: string[];
+  steps: EditorialTrailStep[];
   order: number;
 }
 
@@ -31,6 +41,7 @@ function rowToCollection(row: EditorialCollectionRow): EditorialCollection {
     introduction: row.introduction,
     featuredImageUrl: row.featured_image_url,
     speciesIds: row.species_ids,
+    steps: row.steps ?? [],
     order: row.order,
   };
 }

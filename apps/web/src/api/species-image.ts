@@ -21,11 +21,15 @@ interface SpeciesImageResponse {
 }
 
 export async function getSpeciesImage(
+  taxonId: string | number,
   scientificName: string,
   signal?: AbortSignal,
   includeGallery = false,
 ): Promise<SpeciesImageResult | null> {
-  const params = new URLSearchParams({ scientificName });
+  const params = new URLSearchParams({
+    taxonId: String(taxonId),
+    scientificName,
+  });
   if (includeGallery) {
     params.set('gallery', 'true');
   }

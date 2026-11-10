@@ -118,7 +118,7 @@ export function LandingPage() {
         </Logo>
         <Nav aria-label="Navegação principal">
           <HeaderLink href="#sobre">O atlas</HeaderLink>
-          <HeaderLink href="#colecoes">Coleções</HeaderLink>
+          <HeaderLink href="#trilhas">Trilhas</HeaderLink>
           <HeaderLink href="#explore">O que você encontra</HeaderLink>
           <HeaderAction href="/catalog">Explorar catálogo <Arrow aria-hidden="true">↗</Arrow></HeaderAction>
           <AccountMenu />

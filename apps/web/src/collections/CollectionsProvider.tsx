@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getSpeciesByIds } from '../api/species';
 import {
@@ -108,14 +108,22 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const [collections, setCollections] = useState(readCollections);
   const [isLoading, setIsLoading] = useState(true);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const collectionsRef = useRef(collections);
+  const refreshGeneration = useRef(0);
+
+  useEffect(() => {
+    collectionsRef.current = collections;
+  }, [collections]);
 
   useEffect(() => {
     let cancelled = false;
+    refreshGeneration.current += 1;
 
     if (status === 'loading') {
       setIsLoading(true);
       return () => {
         cancelled = true;
+        refreshGeneration.current += 1;
       };
     }
 
@@ -125,6 +133,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       setSyncError(null);
       return () => {
         cancelled = true;
+        refreshGeneration.current += 1;
       };
     }
 
@@ -164,8 +173,64 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      refreshGeneration.current += 1;
     };
   }, [getAccessToken, status, user?.id]);
+
+  const refreshCollections = useCallback(async () => {
+    const requestGeneration = ++refreshGeneration.current;
+    const isCurrentRequest = () => requestGeneration === refreshGeneration.current;
+
+    if (status === 'loading') {
+      throw new Error('A sessão ainda está sendo carregada.');
+    }
+
+    if (status !== 'authenticated' || !user) {
+      try {
+        setCollections(readCollections());
+        setSyncError(null);
+      } catch (reason) {
+        setSyncError(errorMessage(reason));
+        throw reason;
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    setSyncError(null);
+    try {
+      const localCollections = readCollections();
+      const token = await getAccessToken();
+      if (!isCurrentRequest()) return;
+
+      const localRecords = localCollections.map(collectionRecord);
+      if (localRecords.length > 0) {
+        await importUserCollections(token, localRecords);
+        if (!isCurrentRequest()) return;
+      }
+
+      const records = await getUserCollections(token);
+      if (!isCurrentRequest()) return;
+
+      const cachedSpecies = [
+        ...collectionsRef.current.flatMap((collection) => collection.species),
+        ...localCollections.flatMap((collection) => collection.species),
+      ];
+      const hydrated = await hydrateCollections(records, cachedSpecies);
+      if (!isCurrentRequest()) return;
+
+      if (localRecords.length > 0) {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+      setCollections(hydrated);
+    } catch (reason) {
+      if (!isCurrentRequest()) return;
+      setSyncError(errorMessage(reason));
+      throw reason;
+    } finally {
+      if (isCurrentRequest()) setIsLoading(false);
+    }
+  }, [getAccessToken, status, user]);
 
   const createCollection = useCallback(async (name: string, species?: Species) => {
     const trimmed = name.trim();
@@ -271,6 +336,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       collections,
       isLoading,
       syncError,
+      refreshCollections,
       createCollection,
       renameCollection,
       deleteCollection,
@@ -280,6 +346,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       collections,
       isLoading,
       syncError,
+      refreshCollections,
       createCollection,
       renameCollection,
       deleteCollection,
