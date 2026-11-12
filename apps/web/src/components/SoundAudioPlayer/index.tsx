@@ -49,9 +49,11 @@ export function SoundAudioPlayer({
         )}
       </WavePlayButton>
       <WavePlayerTrack>
+        {/* Native controls keep browsers from hiding this audio element. */}
         <FallbackAudio
           ref={setAudioElement}
-          aria-label={label}
+          aria-hidden="true"
+          controls
           preload="none"
           src={url}
           onLoadedMetadata={(event) =>
@@ -76,7 +78,9 @@ export function SoundAudioPlayer({
           aria-valuemin={0}
           aria-valuemax={duration}
           aria-valuenow={Math.min(currentTime, duration)}
-          aria-valuetext={`${formatAudioTime(currentTime)} de ${formatAudioTime(duration)}`}
+          aria-valuetext={duration > 0
+            ? `${formatAudioTime(currentTime)} de ${formatAudioTime(duration)}`
+            : 'Duração ainda não carregada'}
           onClick={handleWaveformClick}
           onKeyDown={handleWaveformKeyDown}
         >
@@ -91,7 +95,9 @@ export function SoundAudioPlayer({
           ))}
         </Waveform>
         <WaveTime aria-live="off">
-          {formatAudioTime(currentTime)} / {formatAudioTime(duration)}
+          {duration > 0
+            ? `${formatAudioTime(currentTime)} / ${formatAudioTime(duration)}`
+            : '--:-- / --:--'}
         </WaveTime>
         {playbackError && (
           <span role="status" style={{ fontSize: "0.75rem" }}>

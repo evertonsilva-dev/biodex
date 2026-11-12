@@ -4,10 +4,21 @@ export const Wrapper = styled.div`
   position: relative;
 `;
 
+export const SearchAdornment = styled.span`
+  position: absolute;
+  top: 50%;
+  left: 0.85rem;
+  display: grid;
+  color: ${({ theme }) => theme.colors.muted};
+  opacity: 0.72;
+  pointer-events: none;
+  transform: translateY(-50%);
+`;
+
 export const Input = styled.input`
   min-width: 0;
   width: 100%;
-  padding: 0.75rem 0.85rem;
+  padding: 0.75rem 0.85rem 0.75rem 2.2rem;
   border: none;
   border-bottom: 1px solid ${({ theme }) => theme.colors.line};
   background: transparent;

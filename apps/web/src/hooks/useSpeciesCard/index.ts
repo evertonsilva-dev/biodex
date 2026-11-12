@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiOrigin } from '../../api/client';
 import { getSpeciesImage } from '../../api/species-image';
 import type { Species } from '../../types/species';
-import type { UseSpeciesCardResult } from './types';
+import type { UseSpeciesCardOptions, UseSpeciesCardResult } from './types';
 
 const representativeRankLabels: Record<string, string> = {
   genus: 'gênero',
@@ -26,10 +26,13 @@ const rankLabels: Record<string, string> = {
   genus: 'Gênero',
 };
 
-export function useSpeciesCard(species: Species): UseSpeciesCardResult {
+export function useSpeciesCard(
+  species: Species,
+  { includeGallery = false }: UseSpeciesCardOptions = {},
+): UseSpeciesCardResult {
   const artworkRef = useRef<HTMLDivElement>(null);
   const [isNearViewport, setIsNearViewport] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
+  const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const kingdomColor = species.kingdom?.color || '#64748b';
   const editorialImage = species.image?.url
     ? new URL(
@@ -38,17 +41,27 @@ export function useSpeciesCard(species: Species): UseSpeciesCardResult {
       ).toString()
     : undefined;
   const imageQuery = useQuery({
-    queryKey: ['species-image', species.id, 'hierarchical-v3'],
-    queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal),
-    enabled: isNearViewport && !editorialImage,
+    queryKey: ['species-image', species.id, includeGallery ? 'detail-gallery-v2' : 'hierarchical-v3'],
+    queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal, includeGallery),
+    enabled: isNearViewport && (!editorialImage || includeGallery),
     staleTime: (query) => query.state.data?.url
       ? 30 * 24 * 60 * 60 * 1000
       : 5 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
   });
-  const image = editorialImage || imageQuery.data?.url;
-  const imageCredit = editorialImage ? null : imageQuery.data ?? null;
+  const apiImages = imageQuery.data?.images?.length
+    ? imageQuery.data.images
+    : imageQuery.data
+      ? [imageQuery.data]
+      : [];
+  const selectedApiImage = apiImages.find(({ url }) => !failedImageUrls.includes(url));
+  const useEditorialImage = Boolean(
+    editorialImage && !failedImageUrls.includes(editorialImage),
+  );
+  const image = useEditorialImage ? editorialImage : selectedApiImage?.url;
+  const imageCredit = useEditorialImage ? null : selectedApiImage ?? null;
+  const imageFailed = !image && failedImageUrls.length > 0;
   const representativeRankLabel = imageCredit?.representativeRank
     ? representativeRankLabels[imageCredit.representativeRank] ?? 'grupo taxonômico'
     : 'grupo taxonômico';
@@ -77,7 +90,16 @@ export function useSpeciesCard(species: Species): UseSpeciesCardResult {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => setImageFailed(false), [image]);
+  useEffect(() => {
+    setFailedImageUrls([]);
+  }, [species.documentId]);
+
+  const onImageError = () => {
+    if (!image) return;
+    setFailedImageUrls((current) => (
+      current.includes(image) ? current : [...current, image]
+    ));
+  };
 
   const taxonomy = [
     ...(species.kingdom ? [species.kingdom.name] : []),
@@ -97,6 +119,7 @@ export function useSpeciesCard(species: Species): UseSpeciesCardResult {
     imageAlt,
     taxonomy,
     imageQueryError: imageQuery.isError,
-    onImageError: () => setImageFailed(true),
+    imageQueryPending: imageQuery.isPending,
+    onImageError,
   };
 }

@@ -1,8 +1,10 @@
 import { useSpeciesCard } from "../../hooks/useSpeciesCard";
+import { MAX_COMPARISON_SPECIES } from "../../hooks/useSpeciesComparison";
 import type { SpeciesCardProps } from "./types";
 import {
   Card,
   CardDetailsLink,
+  CardSelectionButton,
   Artwork,
   ArtworkImage,
   ArtworkFallback,
@@ -16,7 +18,14 @@ import {
   SideLabel,
 } from "./styles";
 
-export function SpeciesCard({ species, preview = false }: SpeciesCardProps) {
+export function SpeciesCard({
+  species,
+  preview = false,
+  comparisonSelectionMode = false,
+  comparisonSelected = false,
+  comparisonDisabled = false,
+  onComparisonToggle,
+}: SpeciesCardProps) {
   const {
     artworkRef,
     kingdomColor,
@@ -39,7 +48,13 @@ export function SpeciesCard({ species, preview = false }: SpeciesCardProps) {
   const documentCode = species.documentId.slice(-8).toUpperCase();
 
   return (
-    <Card $kingdomColor={kingdomColor} $preview={preview}>
+    <Card
+      $kingdomColor={kingdomColor}
+      $preview={preview}
+      $selectionMode={comparisonSelectionMode}
+      $selectionDisabled={comparisonDisabled}
+      $selectionSelected={comparisonSelected}
+    >
       <Artwork
         ref={artworkRef}
         $kingdomColor={kingdomColor}
@@ -63,7 +78,7 @@ export function SpeciesCard({ species, preview = false }: SpeciesCardProps) {
           <ArtLabel>{documentCode}</ArtLabel>
         </ArtworkMeta>
         <SideLabel title={species.commonName}>{species.commonName}</SideLabel>
-        <SpecimenInfo>
+        <SpecimenInfo $selectionMode={comparisonSelectionMode}>
           <Taxonomy
             aria-label={`Classificação taxonômica: ${classification || taxonomy}`}
           >
@@ -89,12 +104,25 @@ export function SpeciesCard({ species, preview = false }: SpeciesCardProps) {
           )}
         </SpecimenInfo>
       </Artwork>
-      {!preview && (
+      {!preview && !comparisonSelectionMode && (
         <CardDetailsLink
           $kingdomColor={kingdomColor}
           href={`/species/${encodeURIComponent(species.documentId)}${window.location.search}`}
           aria-label={`Ver detalhes de ${species.commonName} (${species.scientificName})`}
           title={`Ver detalhes de ${species.commonName}`}
+        />
+      )}
+      {!preview && comparisonSelectionMode && onComparisonToggle && (
+        <CardSelectionButton
+          type="button"
+          disabled={comparisonDisabled}
+          aria-pressed={comparisonSelected}
+          aria-label={comparisonSelected
+            ? `Remover ${species.commonName} (${species.scientificName}) da comparação`
+            : comparisonDisabled
+              ? `Limite de ${MAX_COMPARISON_SPECIES} espécies atingido`
+              : `Adicionar ${species.commonName} (${species.scientificName}) à comparação`}
+          onClick={onComparisonToggle}
         />
       )}
     </Card>

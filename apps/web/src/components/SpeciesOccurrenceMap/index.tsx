@@ -180,7 +180,6 @@ export function SpeciesOccurrenceMap({
           attribution='&copy; <a href="https://www.gbif.org/">GBIF</a> &copy; OpenStreetMap contributors'
           url="https://tile.gbif.org/3857/omt/{z}/{x}/{y}@1x.png?style=gbif-light"
           maxZoom={19}
-          noWrap
         />
         <TileLayer
           key={taxonKey}
@@ -190,7 +189,6 @@ export function SpeciesOccurrenceMap({
           opacity={0.9}
           maxNativeZoom={12}
           maxZoom={12}
-          noWrap
         />
         <ZoomControl position="bottomright" />
       </MapContainer>

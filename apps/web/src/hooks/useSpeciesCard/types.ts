@@ -1,21 +1,21 @@
 import type { RefObject } from 'react';
-import type { Species } from '../../types/species';
-import type { SpeciesImageResult } from '../../api/species-image';
+import type { SpeciesImagePhoto } from '../../api/species-image';
 
 export interface UseSpeciesCardResult {
   artworkRef: RefObject<HTMLDivElement>;
   kingdomColor: string;
   image?: string;
-  imageCredit: SpeciesImageResult | null;
+  imageCredit: SpeciesImagePhoto | null;
   representativeTaxonName?: string | null;
   representativeRankLabel: string;
   imageFailed: boolean;
   imageAlt: string;
   taxonomy: string;
   imageQueryError: boolean;
+  imageQueryPending: boolean;
   onImageError(): void;
 }
 
 export interface UseSpeciesCardOptions {
-  species: Species;
+  includeGallery?: boolean;
 }
