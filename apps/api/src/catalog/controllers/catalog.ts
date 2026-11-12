@@ -482,7 +482,7 @@ export default function createCatalogController({
       }
       const { where, bindings, searchTerm } = createFilters(ctx.query, ctx);
       const sort = parseCatalogSort(ctx.query, ctx);
-      const countResult = await runtime.db.query(
+      const countQuery = runtime.db.query(
         `SELECT count(*)::text AS total
        FROM col_taxon_usage t
        LEFT JOIN col_kingdom k ON k.name = t.kingdom
@@ -498,7 +498,7 @@ export default function createCatalogController({
             : searchTerm
               ? `${relevanceOrder(searchTerm, rowsBindings)}, t.scientific_name NULLS LAST, t.external_id`
               : "t.scientific_name NULLS LAST, t.external_id";
-      const rowsResult = await runtime.db.query(
+      const rowsQuery = runtime.db.query(
         `SELECT
          t.external_id, t.scientific_name, t.environment, t.extinct, t.phylum, t.taxon_class,
          t.taxon_order, t.family, t.genus, t.rank, t.kingdom,
@@ -522,6 +522,7 @@ export default function createCatalogController({
        LIMIT $${rowsBindings.length + 1} OFFSET $${rowsBindings.length + 2}`,
         [...rowsBindings, pageSize, offset],
       );
+      const [countResult, rowsResult] = await Promise.all([countQuery, rowsQuery]);
       const total = Number(countResult.rows[0].total);
 
       ctx.body = {

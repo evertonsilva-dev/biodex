@@ -8,12 +8,18 @@ import { AuthPage } from '../AuthPage';
 import { ProfilePage } from '../ProfilePage';
 import { useAuth } from '../../auth/AuthProvider';
 import { LoadingScreen } from '../LoadingScreen';
+import { SpeciesComparisonProvider } from '../../hooks/useSpeciesComparison';
 
 const CollectionsPage = lazy(() =>
   import('../CollectionsPage').then(({ CollectionsPage: page }) => ({ default: page })),
 );
 const EditorialCollectionDetail = lazy(() =>
   import('../EditorialCollectionDetail').then(({ EditorialCollectionDetail: page }) => ({
+    default: page,
+  })),
+);
+const SpeciesComparisonPage = lazy(() =>
+  import('../SpeciesComparisonPage').then(({ SpeciesComparisonPage: page }) => ({
     default: page,
   })),
 );
@@ -59,6 +65,27 @@ export function App() {
   else if (route.page === 'profile') page = <ProfilePage />;
   else if (route.page === 'species') page = <SpeciesDetailPage externalId={route.externalId} />;
   else if (route.page === 'catalog') page = <CatalogPage />;
+  else if (route.page === 'compare') {
+    page = (
+      <Suspense
+        fallback={
+          <LoadingScreen
+            label="COMPARADOR DE ESPÉCIES"
+            items={[
+              { label: 'Catálogo', href: `/catalog${window.location.search}` },
+              { label: 'Comparador' },
+            ]}
+            backHref={`/catalog${window.location.search}`}
+            backLabel="Voltar ao catálogo"
+            title="Preparando a comparação"
+            description="Estamos reunindo os dados das espécies selecionadas."
+          />
+        }
+      >
+        <SpeciesComparisonPage />
+      </Suspense>
+    );
+  }
   else if (route.page === 'collections') {
     page = (
       <Suspense
@@ -111,5 +138,5 @@ export function App() {
   }
   else page = <ErrorPage type="not-found" />;
 
-  return page;
+  return <SpeciesComparisonProvider>{page}</SpeciesComparisonProvider>;
 }

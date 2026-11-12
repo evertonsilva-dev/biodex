@@ -18,6 +18,7 @@ export function useAppRoute(): AppRoute {
   const isProfile = pathname === '/profile' || pathname === '/profile/';
   const isLanding = pathname === '/' || pathname === '';
   const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
+  const isCompare = pathname === '/compare' || pathname === '/compare/';
   const editorialCollectionMatch = pathname.match(/^\/collections\/editorial\/([^/]+)\/?$/);
   let editorialCollectionSlug: string | null = null;
   if (editorialCollectionMatch?.[1]) {
@@ -46,18 +47,20 @@ export function useAppRoute(): AppRoute {
       && !isProfile
       && !isLanding
       && !isCatalog
+      && !isCompare
       && !isCollections
       && !isEditorialCollection
       && externalId === null
     ) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isLogin, isProfile, isLanding, isCatalog, isCollections, isEditorialCollection, externalId]);
+  }, [isErrorPage, isLogin, isProfile, isLanding, isCatalog, isCompare, isCollections, isEditorialCollection, externalId]);
 
   if (isErrorPage) return { page: 'error' };
   if (isLogin) return { page: 'login' };
   if (isProfile) return { page: 'profile' };
   if (externalId !== null) return { page: 'species', externalId };
+  if (isCompare) return { page: 'compare' };
   if (editorialCollectionSlug !== null) {
     return { page: 'editorial-collection', slug: editorialCollectionSlug };
   }

@@ -1,6 +1,7 @@
 export type AppRoute =
   | { page: 'landing' }
   | { page: 'catalog' }
+  | { page: 'compare' }
   | { page: 'error' }
   | { page: 'login' }
   | { page: 'profile' }

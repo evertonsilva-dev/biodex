@@ -1,10 +1,18 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import { getSearchSuggestions } from "../../api/species";
 import type { SearchSuggestion } from "../../types/species";
 import type { CatalogSearchProps } from "./types";
-import { Input, Listbox, Option, Status, Wrapper } from "./styles";
+import {
+  Input,
+  Listbox,
+  Option,
+  SearchAdornment,
+  Status,
+  Wrapper,
+} from "./styles";
 
 const SUGGESTION_DEBOUNCE_MS = 250;
 const FALLBACK_COLOR = "#4f7a5a";
@@ -94,6 +102,9 @@ export function CatalogSearch({
 
   return (
     <Wrapper ref={wrapperRef}>
+      <SearchAdornment aria-hidden="true">
+        <Search size={16} strokeWidth={1.8} />
+      </SearchAdornment>
       <Input
         type="search"
         role="combobox"

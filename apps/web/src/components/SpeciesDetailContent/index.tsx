@@ -9,6 +9,8 @@ import { SpeciesSourceSection } from "../SpeciesSourceSection";
 import { SketchfabModels } from "../SketchfabModels";
 import { useSpeciesDetails } from "../../hooks/useSpeciesDetails";
 import { SaveSpeciesButton } from "../SaveSpeciesButton";
+import { SpeciesComparisonButton } from "../SpeciesComparisonButton";
+import { SpeciesComparisonBar } from "../SpeciesComparisonBar";
 import { rankLabel } from "../../utils/species-detail-formatters";
 import type { SpeciesDetailContentProps } from "./types";
 import {
@@ -28,6 +30,7 @@ import {
   RepresentativeNote,
   SidebarColumn,
   ScientificName,
+  ActionBar,
 } from "./styles";
 
 export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
@@ -82,7 +85,10 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           <CommonName>{species.commonName}</CommonName>
           <ScientificName>{species.scientificName}</ScientificName>
           {species.authorship && <Authorship>{species.authorship}</Authorship>}
-          <SaveSpeciesButton species={species} variant="detail" />
+          <ActionBar role="group" aria-label="Ações da espécie">
+            <SaveSpeciesButton species={species} variant="detail" />
+            <SpeciesComparisonButton species={species} />
+          </ActionBar>
           <Badges>
             {species.extinct === true && <Badge>Extinta</Badge>}
             {species.kingdom?.isVirus && <Badge>Vírus</Badge>}
@@ -111,6 +117,8 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           )}
         </HeroInfo>
       </Hero>
+
+      <SpeciesComparisonBar accentColor={species.kingdom?.color} />
 
       <Content $hasSidebar={hasMediaSidebar}>
         <SidebarColumn aria-label="Mapa e áudio da espécie">

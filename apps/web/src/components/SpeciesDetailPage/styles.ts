@@ -555,12 +555,12 @@ export const WavePlayButton = styled.button`
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--kingdom-color);
+  background: var(--kingdom-color, ${({ theme }) => theme.colors.green});
   color: ${({ theme }) => theme.colors.paper};
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid var(--kingdom-color);
+    outline: 2px solid var(--kingdom-color, ${({ theme }) => theme.colors.green});
     outline-offset: 3px;
   }
 
@@ -572,6 +572,7 @@ export const WavePlayButton = styled.button`
 `;
 
 export const WavePlayerTrack = styled.div`
+  position: relative;
   display: grid;
   gap: 0.2rem;
   min-width: 0;
@@ -591,7 +592,7 @@ export const Waveform = styled.div`
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid var(--kingdom-color);
+    outline: 2px solid var(--kingdom-color, ${({ theme }) => theme.colors.green});
     outline-offset: 3px;
   }
 
@@ -600,7 +601,7 @@ export const Waveform = styled.div`
     min-width: 2px;
     max-width: 4px;
     border-radius: 2px;
-    background: var(--kingdom-color);
+    background: var(--kingdom-color, ${({ theme }) => theme.colors.green});
     opacity: 0.72;
   }
 `;
@@ -614,7 +615,13 @@ export const WaveTime = styled.div`
 `;
 
 export const FallbackAudio = styled.audio`
-  display: none;
+  display: block;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  opacity: 0;
 `;
 
 export const SourceLink = styled.a`

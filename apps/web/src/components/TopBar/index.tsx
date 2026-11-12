@@ -18,7 +18,7 @@ export function TopBar({ label, kingdomColor }: TopBarProps) {
       <HeaderActions>
         <HeaderNav aria-label="Navegação principal">
           <Label>{label}</Label>
-          <HeaderNavLink href="/catalog">Catálogo</HeaderNavLink>
+          <HeaderNavLink href={`/catalog${window.location.search}`}>Catálogo</HeaderNavLink>
         </HeaderNav>
         <AccountMenu />
       </HeaderActions>

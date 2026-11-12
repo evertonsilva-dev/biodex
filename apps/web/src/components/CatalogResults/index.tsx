@@ -1,7 +1,10 @@
+import { useState } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
 import { SpeciesCard } from '../SpeciesCard';
 import { SpeciesCardSkeleton } from '../SpeciesCardSkeleton';
 import { Skeleton } from '../Skeleton';
 import { BiodexSelect } from '../BiodexSelect';
+import { MAX_COMPARISON_SPECIES, useSpeciesComparison } from '../../hooks/useSpeciesComparison';
 import type { CatalogResultsProps } from './types';
 import {
   ActiveFilterChip,
@@ -15,6 +18,8 @@ import {
   ResultCount,
   Results,
   ResultsToolbar,
+  ComparisonModeButton,
+  ToolbarControls,
   SortLabel,
 } from './styles';
 
@@ -31,6 +36,9 @@ export function CatalogResults({
   onPageChange,
   onSortChange,
 }: CatalogResultsProps) {
+  const [comparisonSelectionMode, setComparisonSelectionMode] = useState(false);
+  const { selectedIds, toggleSpecies } = useSpeciesComparison();
+
   return (
     <Results>
       <ResultsToolbar>
@@ -41,25 +49,41 @@ export function CatalogResults({
               ? <><Skeleton $width="3rem" $height="0.85rem" /> <Skeleton $width="12rem" $height="0.85rem" /></>
               : null}
         </ResultCount>
-        <SortLabel>
-          Ordenar por
-          <BiodexSelect
-            label="Ordenar por"
-            options={[
-              { value: 'relevance', label: 'Relevância' },
-              { value: 'scientific', label: 'Nome científico' },
-              { value: 'common', label: 'Nome popular' },
-            ]}
-            value={sort}
-            placeholder="Relevância"
-            isClearable={false}
-            onChange={(value) => {
-              if (value === 'relevance' || value === 'scientific' || value === 'common') {
-                onSortChange(value satisfies CatalogResultsProps['sort']);
-              }
-            }}
-          />
-        </SortLabel>
+        <ToolbarControls>
+          <ComparisonModeButton
+            type="button"
+            $active={comparisonSelectionMode}
+            aria-label={comparisonSelectionMode
+              ? 'Sair do modo de seleção para comparação'
+              : 'Ativar modo de seleção para comparação'}
+            title={comparisonSelectionMode
+              ? 'Sair do modo de seleção'
+              : 'Selecionar espécies para comparar'}
+            aria-pressed={comparisonSelectionMode}
+            onClick={() => setComparisonSelectionMode((active) => !active)}
+          >
+            <ArrowLeftRight size={17} strokeWidth={1.8} aria-hidden="true" />
+          </ComparisonModeButton>
+          <SortLabel>
+            Ordenar por
+            <BiodexSelect
+              label="Ordenar por"
+              options={[
+                { value: 'relevance', label: 'Relevância' },
+                { value: 'scientific', label: 'Nome científico' },
+                { value: 'common', label: 'Nome popular' },
+              ]}
+              value={sort}
+              placeholder="Relevância"
+              isClearable={false}
+              onChange={(value) => {
+                if (value === 'relevance' || value === 'scientific' || value === 'common') {
+                  onSortChange(value satisfies CatalogResultsProps['sort']);
+                }
+              }}
+            />
+          </SortLabel>
+        </ToolbarControls>
       </ResultsToolbar>
       {activeFilters.length > 0 && (
         <ActiveFilters aria-label="Filtros ativos">
@@ -106,7 +130,17 @@ export function CatalogResults({
       {data && data.data.length > 0 && (
         <Grid aria-label="Cartas de espécies">
           {data.data.map((species) => (
-            <SpeciesCard key={species.documentId} species={species} />
+            <SpeciesCard
+              key={species.documentId}
+              species={species}
+              comparisonSelectionMode={comparisonSelectionMode}
+              comparisonSelected={selectedIds.includes(species.documentId)}
+              comparisonDisabled={
+                !selectedIds.includes(species.documentId)
+                && selectedIds.length >= MAX_COMPARISON_SPECIES
+              }
+              onComparisonToggle={() => toggleSpecies(species.documentId)}
+            />
           ))}
         </Grid>
       )}

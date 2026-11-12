@@ -13,6 +13,45 @@ export const ResultsToolbar = styled.div`
   margin-bottom: 0.9rem;
 `;
 
+export const ToolbarControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+
+  @media (max-width: 600px) {
+    width: 100%;
+  }
+`;
+
+export const ComparisonModeButton = styled.button<{ $active: boolean }>`
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid ${({ $active, theme }) => ($active
+    ? `color-mix(in srgb, ${theme.colors.green} 42%, ${theme.colors.line})`
+    : theme.colors.line)};
+  border-radius: 50%;
+  background: ${({ $active, theme }) => ($active
+    ? `color-mix(in srgb, ${theme.colors.green} 11%, ${theme.colors.paper})`
+    : 'transparent')};
+  color: ${({ $active, theme }) => ($active ? theme.colors.green : theme.colors.muted)};
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.green};
+    color: ${({ theme }) => theme.colors.green};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.green};
+    outline-offset: 3px;
+  }
+`;
+
 export const ResultCount = styled.div`
   display: flex;
   align-items: center;
@@ -91,7 +130,8 @@ export const SortLabel = styled.label`
   }
 
   @media (max-width: 600px) {
-    width: 100%;
+    min-width: 0;
+    flex: 1;
 
     > div {
       flex: 1;

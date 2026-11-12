@@ -8,6 +8,7 @@ import { CatalogResults } from '../CatalogResults';
 import type { CatalogActiveFilter } from '../CatalogResults/types';
 import { TopBar } from '../TopBar';
 import { PageNavigation } from '../PageNavigation';
+import { SpeciesComparisonBar } from '../SpeciesComparisonBar';
 import type { BiodexSelectOption } from '../BiodexSelect';
 import { getEnvironmentLabel, getEnvironmentOptions } from '../../utils/environment-label';
 import {
@@ -103,6 +104,7 @@ export function CatalogPage() {
             compartilham este planeta.
           </Intro>
         </Hero>
+        <SpeciesComparisonBar />
 
         <SearchBar aria-label="Busca no catálogo">
           <CatalogSearch value={search} minLength={MIN_SEARCH_LENGTH} onChange={updateSearch} />

@@ -54,6 +54,14 @@ function persistCollections(collections: SpeciesCollection[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
 }
 
+function removePersistedCollection(id: string) {
+  const savedCollections = readCollections();
+  const remaining = savedCollections.filter((collection) => collection.id !== id);
+  if (remaining.length === savedCollections.length) return;
+  if (remaining.length > 0) persistCollections(remaining);
+  else window.localStorage.removeItem(STORAGE_KEY);
+}
+
 function speciesIdsOf(collection: SpeciesCollection): string[] {
   return collection.speciesIds
     ?? collection.species.map((species) => species.documentId);
@@ -109,6 +117,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [syncError, setSyncError] = useState<string | null>(null);
   const collectionsRef = useRef(collections);
+  const pendingCollectionIds = useRef(new Set<string>());
   const refreshGeneration = useRef(0);
 
   useEffect(() => {
@@ -128,6 +137,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     }
 
     if (status !== 'authenticated' || !user) {
+      pendingCollectionIds.current.clear();
       setCollections(readCollections());
       setIsLoading(false);
       setSyncError(null);
@@ -145,6 +155,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       let localCollections: SpeciesCollection[] = [];
       try {
         localCollections = readCollections();
+        pendingCollectionIds.current = new Set(
+          localCollections.map((collection) => collection.id),
+        );
         const token = await getAccessToken();
         const localRecords = localCollections.map(collectionRecord);
         if (localRecords.length > 0) {
@@ -161,6 +174,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         if (localCollections.length > 0) {
           window.localStorage.removeItem(STORAGE_KEY);
         }
+        pendingCollectionIds.current.clear();
         setCollections(hydrated);
       } catch (reason) {
         if (cancelled) return;
@@ -187,6 +201,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
     if (status !== 'authenticated' || !user) {
       try {
+        pendingCollectionIds.current.clear();
         setCollections(readCollections());
         setSyncError(null);
       } catch (reason) {
@@ -200,10 +215,13 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setSyncError(null);
     try {
       const localCollections = readCollections();
+      const localRecords = localCollections.map(collectionRecord);
+      pendingCollectionIds.current = new Set(
+        localCollections.map((collection) => collection.id),
+      );
       const token = await getAccessToken();
       if (!isCurrentRequest()) return;
 
-      const localRecords = localCollections.map(collectionRecord);
       if (localRecords.length > 0) {
         await importUserCollections(token, localRecords);
         if (!isCurrentRequest()) return;
@@ -222,6 +240,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       if (localRecords.length > 0) {
         window.localStorage.removeItem(STORAGE_KEY);
       }
+      pendingCollectionIds.current.clear();
       setCollections(hydrated);
     } catch (reason) {
       if (!isCurrentRequest()) return;
@@ -231,6 +250,16 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
       if (isCurrentRequest()) setIsLoading(false);
     }
   }, [getAccessToken, status, user]);
+
+  const ensureCollectionSynced = useCallback(async (
+    token: string,
+    collection: SpeciesCollection,
+  ) => {
+    if (!pendingCollectionIds.current.has(collection.id)) return;
+    await importUserCollections(token, [collectionRecord(collection)]);
+    removePersistedCollection(collection.id);
+    pendingCollectionIds.current.delete(collection.id);
+  }, []);
 
   const createCollection = useCallback(async (name: string, species?: Species) => {
     const trimmed = name.trim();
@@ -246,6 +275,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         ...created,
         species: initialSpecies,
       };
+      pendingCollectionIds.current.delete(collection.id);
       setCollections((current) => [...current, collection]);
       return collection;
     }
@@ -268,6 +298,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
     if (status === 'authenticated') {
       const token = await getAccessToken();
+      await ensureCollectionSynced(token, current);
       await updateUserCollection(token, collectionRecord(updated));
     } else {
       persistCollections(
@@ -277,17 +308,19 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     setCollections((items) =>
       items.map((collection) => collection.id === id ? updated : collection),
     );
-  }, [collections, getAccessToken, status]);
+  }, [collections, ensureCollectionSynced, getAccessToken, status]);
 
   const deleteCollection = useCallback(async (id: string) => {
     if (status === 'authenticated') {
       const token = await getAccessToken();
+      const current = collections.find((collection) => collection.id === id);
+      if (current) await ensureCollectionSynced(token, current);
       await deleteUserCollection(token, id);
     }
     const next = collections.filter((collection) => collection.id !== id);
     if (status !== 'authenticated') persistCollections(next);
     setCollections(next);
-  }, [collections, getAccessToken, status]);
+  }, [collections, ensureCollectionSynced, getAccessToken, status]);
 
   const toggleSpecies = useCallback(async (
     collectionId: string,
@@ -316,6 +349,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 
     if (status === 'authenticated') {
       const token = await getAccessToken();
+      await ensureCollectionSynced(token, current);
       await updateUserCollection(token, collectionRecord(updated));
     } else {
       persistCollections(
@@ -329,7 +363,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         collection.id === collectionId ? updated : collection,
       ),
     );
-  }, [collections, getAccessToken, status]);
+  }, [collections, ensureCollectionSynced, getAccessToken, status]);
 
   const value = useMemo(
     () => ({

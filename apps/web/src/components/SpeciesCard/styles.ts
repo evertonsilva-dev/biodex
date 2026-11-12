@@ -3,24 +3,46 @@ import styled from "styled-components";
 export const Card = styled.article<{
   $kingdomColor: string;
   $preview?: boolean;
+  $selectionMode?: boolean;
+  $selectionDisabled?: boolean;
+  $selectionSelected?: boolean;
 }>`
   position: relative;
   overflow: hidden;
   min-width: 0;
   aspect-ratio: 0.7;
-  border: 1px solid #e8dfce;
+  border: 1px solid ${({ $selectionMode, $selectionSelected, theme }) => (
+    $selectionMode && $selectionSelected ? theme.colors.green : '#e8dfce'
+  )};
+  outline: ${({ $selectionMode, $selectionSelected, theme }) => (
+    $selectionMode && $selectionSelected ? `2px solid ${theme.colors.green}` : 'none'
+  )};
+  outline-offset: ${({ $selectionMode, $selectionSelected }) => (
+    $selectionMode && $selectionSelected ? '3px' : '0'
+  )};
   border-radius: 15px;
   background: #304b3b;
+  filter: ${({ $selectionMode, $selectionDisabled }) => (
+    $selectionMode && $selectionDisabled ? 'grayscale(1)' : 'none'
+  )};
+  opacity: ${({ $selectionMode, $selectionDisabled }) => (
+    $selectionMode && $selectionDisabled ? 0.42 : 1
+  )};
   box-shadow:
     0 8px 22px ${({ $kingdomColor }) => `${$kingdomColor}18`},
     0 2px 6px #202b2610;
-  cursor: ${({ $preview }) => ($preview ? "default" : "pointer")};
+  cursor: ${({ $preview, $selectionMode, $selectionDisabled }) => (
+    $preview ? 'default' : $selectionMode && $selectionDisabled ? 'not-allowed' : 'pointer'
+  )};
   transition:
     transform 220ms ease,
-    box-shadow 220ms ease;
+    box-shadow 220ms ease,
+    outline-color 220ms ease;
 
   &:hover {
-    transform: translateY(-5px);
+    transform: ${({ $selectionMode, $selectionDisabled }) => (
+      $selectionMode && $selectionDisabled ? 'none' : 'translateY(-5px)'
+    )};
     box-shadow:
       0 16px 34px ${({ $kingdomColor }) => `${$kingdomColor}25`},
       0 4px 10px #202b2618;
@@ -36,6 +58,27 @@ export const CardDetailsLink = styled.a<{ $kingdomColor: string }>`
   &:focus-visible {
     outline: 3px solid ${({ $kingdomColor }) => `${$kingdomColor}99`};
     outline-offset: 3px;
+  }
+`;
+
+export const CardSelectionButton = styled.button`
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 3px solid ${({ theme }) => theme.colors.paper};
+    outline-offset: -5px;
   }
 `;
 
@@ -165,18 +208,20 @@ export const CardTag = styled.span`
   letter-spacing: 0.13em;
 `;
 
-export const SpecimenInfo = styled.div`
+export const SpecimenInfo = styled.div<{ $selectionMode?: boolean }>`
   position: relative;
-  z-index: 1;
+  z-index: ${({ $selectionMode }) => ($selectionMode ? 5 : 3)};
   margin-top: auto;
   padding: 0.8rem 0 0 1.15rem;
   border-top: 1px solid #fff8eb70;
+  pointer-events: ${({ $selectionMode }) => ($selectionMode ? 'none' : 'auto')};
 `;
 
 export const Name = styled.h2`
   overflow: hidden;
   display: -webkit-box;
   min-width: 0;
+  flex: 1 1 auto;
   margin: 0;
   color: #fff8eb;
   font-family: Georgia, "Times New Roman", serif;
