@@ -3,6 +3,11 @@ import {
   SupplementalDataUnavailableError,
 } from "../utils/species-enrichment.js";
 import {
+  parseCachedScientificArticles,
+  searchOpenAlexArticles,
+} from "../services/articles.js";
+import type { ScientificArticle } from "../services/articles.js";
+import {
   collectSpeciesImages,
   EMPTY_IMAGE_CACHE_TTL_DAYS,
   findCommonsImage,
@@ -44,6 +49,23 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function composeImageResult(
+  image: SpeciesImage | null,
+  images: SpeciesImage[],
+  bestPhoto: SpeciesImage | null,
+  includeGallery: boolean,
+) {
+  const selected = bestPhoto ? { ...bestPhoto, isBestPhoto: true } : image;
+  if (!selected) return null;
+  const gallery = bestPhoto
+    ? [selected, ...images.filter(({ url }) => url !== selected.url)]
+    : images;
+  return {
+    ...selected,
+    ...(includeGallery ? { images: gallery } : {}),
+  };
+}
+
 function isTaxonomyLevel(value: string): value is TaxonomyLevel {
   return Object.hasOwn(FACET_COLUMNS, value);
 }
@@ -52,6 +74,9 @@ const MAX_PAGE_SIZE = 100;
 const MAX_SEARCH_LENGTH = 100;
 const MAX_SUGGESTIONS = 8;
 const MAX_FILTER_LENGTH = 200;
+const MAX_ARTICLE_SYNONYMS = 5;
+const ARTICLE_CACHE_TTL_DAYS = 30;
+const EMPTY_ARTICLE_CACHE_TTL_DAYS = 7;
 
 const FACET_COLUMNS: Record<TaxonomyLevel, string> = {
   phylum: "t.phylum",
@@ -463,6 +488,111 @@ export default function createCatalogController({
         }
         throw error;
       }
+    },
+
+    async speciesArticles(ctx) {
+      await ensureCatalogReady(runtime, ctx);
+      const externalId = ctx.params.id;
+      if (
+        typeof externalId !== "string" ||
+        !externalId.trim() ||
+        externalId.length > 200
+      ) {
+        ctx.throw(400, "A valid species identifier is required.");
+      }
+
+      const speciesResult = await runtime.db.query<{
+        external_id: string;
+        scientific_name: string;
+      }>(
+        `
+      SELECT external_id, scientific_name
+      FROM col_taxon_usage
+      WHERE external_id = $1
+        AND status = 'accepted'
+        AND rank = 'species'
+        AND is_catalog_species = true
+      LIMIT 1
+    `,
+        [externalId],
+      );
+      const species = speciesResult.rows[0];
+      if (!species) {
+        ctx.throw(404, "Species not found.");
+      }
+
+      const cached = await runtime.db.query<{
+        payload: unknown;
+        is_fresh: boolean;
+      }>(
+        `
+      SELECT payload, expires_at > now() AS is_fresh
+      FROM col_species_article_cache
+      WHERE external_id = $1
+      `,
+        [species.external_id],
+      );
+      const cachedRow = cached.rows[0];
+      if (cachedRow?.is_fresh) {
+        ctx.body = { data: parseCachedScientificArticles(cachedRow.payload) };
+        return;
+      }
+
+      const synonymsResult = await runtime.db.query<{
+        scientific_name: string;
+      }>(
+        `
+      SELECT DISTINCT related.scientific_name
+      FROM col_name_relation relation
+      JOIN col_taxon_usage related
+        ON related.external_id = CASE
+          WHEN relation.name_external_id = $1 THEN relation.related_name_external_id
+          ELSE relation.name_external_id
+        END
+      WHERE (relation.name_external_id = $1 OR relation.related_name_external_id = $1)
+        AND related.rank = 'species'
+        AND related.scientific_name IS NOT NULL
+        AND related.scientific_name <> $2
+        AND (
+          lower(COALESCE(relation.relation_type, '')) LIKE '%synonym%'
+          OR lower(COALESCE(related.status, '')) LIKE '%synonym%'
+        )
+      ORDER BY related.scientific_name
+      LIMIT $3
+    `,
+        [species.external_id, species.scientific_name, MAX_ARTICLE_SYNONYMS],
+      );
+      let articles: ScientificArticle[];
+      try {
+        articles = await searchOpenAlexArticles(
+          [
+            species.scientific_name,
+            ...synonymsResult.rows.map(({ scientific_name }) => scientific_name),
+          ],
+          runtime.openAlexApiKey,
+        );
+      } catch (error) {
+        runtime.log.warn(
+          `OpenAlex article search failed for "${species.scientific_name}": ${errorMessage(error)}`,
+        );
+        return ctx.throw(502, "Scientific articles are temporarily unavailable.");
+      }
+
+      const cacheTtl = articles.length > 0
+        ? ARTICLE_CACHE_TTL_DAYS
+        : EMPTY_ARTICLE_CACHE_TTL_DAYS;
+      await runtime.db.query(
+        `
+      INSERT INTO col_species_article_cache (external_id, payload, expires_at)
+      VALUES ($1, $2::jsonb, now() + ($3::int * interval '1 day'))
+      ON CONFLICT (external_id) DO UPDATE SET
+        payload = EXCLUDED.payload,
+        fetched_at = now(),
+        expires_at = EXCLUDED.expires_at
+    `,
+        [species.external_id, JSON.stringify(articles), cacheTtl],
+      );
+      ctx.body = { data: articles };
     },
 
     async species(ctx) {
@@ -1068,6 +1198,15 @@ export default function createCatalogController({
         ? `taxon:${taxon.external_id.toLocaleLowerCase("en")}`
         : `name:${normalizeTaxonName(scientificName)}`;
       const cacheKey = `${IMAGE_CACHE_VERSION}:${cacheIdentity}`;
+      const bestPhotoResult = taxon
+        ? await runtime.db.query<{ photo_payload: SpeciesImage }>(
+            `SELECT photo_payload
+             FROM public.col_species_best_photo
+             WHERE external_id = $1`,
+            [taxon.external_id],
+          )
+        : { rows: [] };
+      const bestPhoto = bestPhotoResult.rows[0]?.photo_payload ?? null;
 
       const cached = await runtime.db.query(
         `
@@ -1103,18 +1242,17 @@ export default function createCatalogController({
         cachedRow &&
         (!includeGallery || Number(cachedRow.gallery_version) >= 1)
       ) {
+        const cachedGallery = includeGallery
+          ? parseCachedImageGallery(cachedRow.gallery_images)
+          : [];
         ctx.body = {
-          data: cachedImage
-            ? {
-                ...cachedImage,
-                ...(includeGallery
-                  ? {
-                      images: parseCachedImageGallery(cachedRow.gallery_images),
-                    }
-                  : {}),
-              }
-            : null,
+          data: composeImageResult(cachedImage, cachedGallery, bestPhoto, includeGallery),
         };
+        return;
+      }
+
+      if (bestPhoto && !includeGallery) {
+        ctx.body = { data: composeImageResult(bestPhoto, [], bestPhoto, false) };
         return;
       }
 
@@ -1158,12 +1296,24 @@ export default function createCatalogController({
       }
 
       if (!image && providerErrors.length === providerAttempts) {
+        if (bestPhoto) {
+          ctx.body = {
+            data: composeImageResult(bestPhoto, [bestPhoto], bestPhoto, includeGallery),
+          };
+          return;
+        }
         runtime.log.error(
           `All image providers failed for "${scientificName}".`,
         );
         ctx.throw(502, "Image providers are temporarily unavailable.");
       }
       if (!image && providerErrors.length > 0) {
+        if (bestPhoto) {
+          ctx.body = {
+            data: composeImageResult(bestPhoto, [bestPhoto], bestPhoto, includeGallery),
+          };
+          return;
+        }
         runtime.log.warn(
           `At least one image provider failed for "${scientificName}"; skipping negative cache.`,
         );
@@ -1237,9 +1387,7 @@ export default function createCatalogController({
       );
 
       ctx.body = {
-        data: image
-          ? { ...image, ...(includeGallery ? { images: galleryImages } : {}) }
-          : null,
+        data: composeImageResult(image, galleryImages, bestPhoto, includeGallery),
       };
     },
   };

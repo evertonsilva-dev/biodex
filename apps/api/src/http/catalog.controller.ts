@@ -33,6 +33,7 @@ export function createCatalogHttpController(catalog: CatalogController): Catalog
     suggestions: adapt(catalog.suggestions),
     speciesDetails: adapt(catalog.speciesDetails),
     speciesEnrichment: adapt(catalog.speciesEnrichment),
+    speciesArticles: adapt(catalog.speciesArticles),
     kingdoms: adapt(catalog.kingdoms),
     facets: adapt(catalog.facets),
     image: adapt(catalog.image),

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import {
   authClient,
+  emailOtpClient,
   getAuthAccessToken,
   isGoogleLoginEnabled,
 } from './auth-client';
@@ -29,6 +30,10 @@ interface AuthContextValue {
   signInWithGoogle: (callbackURL: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<boolean>;
+  verifyEmailWithCode: (email: string, code: string) => Promise<boolean>;
+  resendEmailVerificationCode: (email: string) => Promise<void>;
+  requestPasswordReset: (email: string, callbackURL: string) => Promise<void>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string>;
 }
@@ -138,6 +143,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshSession]);
 
+  const verifyEmailWithCode = useCallback(async (email: string, code: string) => {
+    if (!emailOtpClient) throw new Error('O login não está configurado neste ambiente.');
+    setError(null);
+    try {
+      const result = await emailOtpClient.emailOtp.verifyEmail({ email, otp: code });
+      if (result.error) throw new Error(result.error.message);
+      const session = await refreshSession();
+      if (session.error) throw new Error(session.error);
+      return session.user !== null;
+    } catch (reason) {
+      const message = messageFrom(reason, 'Não foi possível confirmar seu e-mail.');
+      setError(message);
+      throw new Error(message);
+    }
+  }, [refreshSession]);
+
+  const resendEmailVerificationCode = useCallback(async (email: string) => {
+    if (!emailOtpClient) throw new Error('O login não está configurado neste ambiente.');
+    setError(null);
+    try {
+      const result = await emailOtpClient.emailOtp.sendVerificationOtp({
+        email,
+        type: 'email-verification',
+      });
+      if (result.error) throw new Error(result.error.message);
+    } catch (reason) {
+      const message = messageFrom(reason, 'Não foi possível reenviar o código de confirmação.');
+      setError(message);
+      throw new Error(message);
+    }
+  }, []);
+
+  const requestPasswordReset = useCallback(async (email: string, callbackURL: string) => {
+    if (!authClient) throw new Error('O login não está configurado neste ambiente.');
+    setError(null);
+    try {
+      const result = await authClient.requestPasswordReset({ email, redirectTo: callbackURL });
+      if (result.error) throw new Error(result.error.message);
+    } catch (reason) {
+      const message = messageFrom(reason, 'Não foi possível solicitar a redefinição da senha.');
+      setError(message);
+      throw new Error(message);
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (token: string, newPassword: string) => {
+    if (!authClient) throw new Error('O login não está configurado neste ambiente.');
+    setError(null);
+    try {
+      const result = await authClient.resetPassword({ token, newPassword });
+      if (result.error) throw new Error(result.error.message);
+    } catch (reason) {
+      const message = messageFrom(reason, 'Não foi possível redefinir a senha.');
+      setError(message);
+      throw new Error(message);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!authClient) return;
     setError(null);
@@ -165,10 +228,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
+      verifyEmailWithCode,
+      resendEmailVerificationCode,
+      requestPasswordReset,
+      resetPassword,
       signOut,
       getAccessToken,
     }),
-    [user, status, error, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, getAccessToken],
+    [
+      user,
+      status,
+      error,
+      signInWithGoogle,
+      signInWithEmail,
+      signUpWithEmail,
+      verifyEmailWithCode,
+      resendEmailVerificationCode,
+      requestPasswordReset,
+      resetPassword,
+      signOut,
+      getAccessToken,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

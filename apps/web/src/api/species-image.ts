@@ -7,6 +7,7 @@ export interface SpeciesImagePhoto {
   attribution: string;
   license: string;
   referenceUrl: string;
+  isBestPhoto?: boolean;
   isRepresentative?: boolean;
   representativeRank?: string | null;
   representativeTaxonName?: string | null;

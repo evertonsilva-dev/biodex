@@ -150,6 +150,23 @@ export interface SpeciesEnrichmentResponse {
   data: SpeciesEnrichment;
 }
 
+export interface ScientificArticle {
+  id: string;
+  title: string;
+  authors: string[];
+  authorCount: number;
+  year: number | null;
+  journal: string | null;
+  doi: string | null;
+  url: string;
+  openAccessUrl: string | null;
+  isOpenAccess: boolean;
+}
+
+export interface SpeciesArticlesResponse {
+  data: ScientificArticle[];
+}
+
 export interface SpeciesDetailResponse {
   data: SpeciesDetail;
 }

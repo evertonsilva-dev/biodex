@@ -44,6 +44,9 @@ const envSchema = z.object({
   DATABASE_POOL_MAX: positiveInteger(10),
   NEON_AUTH_BASE_URL: z.string().default(''),
   NEON_AUTH_JWKS_URL: z.string().default(''),
+  ROOT_USER_ID: z.string().trim().default(''),
+  CPF_ENCRYPTION_KEY: z.string().trim().default(''),
+  OPENALEX_API_KEY: z.string().trim().default(''),
 }).safeParse(process.env);
 
 if (!envSchema.success) {
@@ -68,6 +71,9 @@ export const env = {
   databasePoolMax: envSchema.data.DATABASE_POOL_MAX,
   neonAuthBaseUrl: envSchema.data.NEON_AUTH_BASE_URL,
   neonAuthJwksUrl: envSchema.data.NEON_AUTH_JWKS_URL,
+  rootUserId: envSchema.data.ROOT_USER_ID,
+  cpfEncryptionKey: envSchema.data.CPF_ENCRYPTION_KEY,
+  openAlexApiKey: envSchema.data.OPENALEX_API_KEY,
 };
 
 export type ApiEnvironment = typeof env;

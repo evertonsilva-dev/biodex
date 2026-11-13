@@ -216,7 +216,8 @@ async function main() {
         public.col_taxon_usage,
         public.col_kingdom,
         public.col_species_image_cache,
-        public.col_species_enrichment_cache
+        public.col_species_enrichment_cache,
+        public.col_species_article_cache
     `);
     for (const table of TABLES) {
       const columns = columnsByTable.get(table);

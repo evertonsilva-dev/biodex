@@ -2,6 +2,7 @@ import ImageGallery from "react-image-gallery";
 import "react-image-gallery/styles/image-gallery.css";
 import { SpeciesMediaSidebar } from "../SpeciesMediaSidebar";
 import { SpeciesSupplementalData } from "../SpeciesSupplementalData";
+import { SpeciesArticles } from "../SpeciesArticles";
 import { SpeciesClassificationSection } from "../SpeciesClassificationSection";
 import { SpeciesEcologySection } from "../SpeciesEcologySection";
 import { SpeciesNamesSection } from "../SpeciesNamesSection";
@@ -11,6 +12,7 @@ import { useSpeciesDetails } from "../../hooks/useSpeciesDetails";
 import { SaveSpeciesButton } from "../SaveSpeciesButton";
 import { SpeciesComparisonButton } from "../SpeciesComparisonButton";
 import { SpeciesComparisonBar } from "../SpeciesComparisonBar";
+import { PhotoSuggestionButton } from "../PhotoSuggestionButton";
 import { rankLabel } from "../../utils/species-detail-formatters";
 import type { SpeciesDetailContentProps } from "./types";
 import {
@@ -90,6 +92,10 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
             <SpeciesComparisonButton species={species} />
           </ActionBar>
           <Badges>
+            {species.habitat && <Badge>{species.habitat}</Badge>}
+            {species.conservationStatus && (
+              <Badge>{species.conservationStatus}</Badge>
+            )}
             {species.extinct === true && <Badge>Extinta</Badge>}
             {species.kingdom?.isVirus && <Badge>Vírus</Badge>}
           </Badges>
@@ -115,6 +121,10 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
               </a>
             </RepresentativeNote>
           )}
+          <PhotoSuggestionButton
+            speciesId={species.documentId}
+            photo={selectedPhoto?.credit ?? null}
+          />
         </HeroInfo>
       </Hero>
 
@@ -126,13 +136,19 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
             enrichment={enrichmentQuery.data?.data}
             hasError={enrichmentQuery.isError}
             isFetching={enrichmentQuery.isFetching}
-            onRefresh={() => { void refreshEnrichment(); }}
+            onRefresh={() => {
+              void refreshEnrichment();
+            }}
           />
         </SidebarColumn>
         <MainColumn $hasSidebar={hasMediaSidebar}>
           <SpeciesClassificationSection species={species} />
           <SpeciesEcologySection species={species} />
           <SpeciesSupplementalData enrichment={enrichmentQuery.data?.data} />
+          <SpeciesArticles
+            speciesId={species.documentId}
+            scientificName={species.scientificName}
+          />
           <SketchfabModels species={species} />
           <SpeciesNamesSection species={species} />
           <SpeciesSourceSection
@@ -143,9 +159,7 @@ export function SpeciesDetailContent({ species }: SpeciesDetailContentProps) {
           />
         </MainColumn>
       </Content>
-      <Footer>
-        BIODEX · Consulte a procedência indicada em cada ficha.
-      </Footer>
+      <Footer>BIODEX · Consulte a procedência indicada em cada ficha.</Footer>
     </>
   );
 }

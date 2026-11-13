@@ -58,6 +58,8 @@ apps/
 
 2. Configure a API copiando `apps/api/.env.example` para `apps/api/.env` e preenchendo a conexão PostgreSQL. Use `DATABASE_URL` pooled para a API e mantenha as variáveis individuais se os importadores precisarem acessar um PostgreSQL local.
 
+   A busca de artigos usa metadados do OpenAlex. Configure opcionalmente `OPENALEX_API_KEY` na API para evitar depender da cota anônima compartilhada; mantenha essa chave somente no ambiente do backend.
+
 3. Inicie a API:
 
    ```sh
@@ -72,7 +74,7 @@ apps/
 
    Esse comando inicia o Vite com HMR e conecta à API local em `http://localhost:1337/api` (ou à URL definida por `VITE_API_URL` em `apps/web/.env.local`). Para testar o Worker localmente com Wrangler, use `npm run dev:cloudflare`; esse fluxo constrói os arquivos antes de iniciar o Worker e não oferece HMR. A API escuta na porta `1337` por padrão, oferece `/health` e permite configurar origens com `CORS_ORIGINS`. Erros são formatados por um middleware único, e a API registra requisições com logs estruturados.
 
-O login é opcional. Para desenvolvimento com Neon Auth, use uma branch isolada com `auth: true` em `neon.ts` (por exemplo, `neon checkout dev-auth --create --no-env-pull`) e obtenha somente as variáveis de Auth com `neon env pull --service auth --file .env.local`. O frontend lê `NEON_AUTH_BASE_URL` dessa configuração; a API também lê `NEON_AUTH_BASE_URL` e `NEON_AUTH_JWKS_URL` do `.env.local` na raiz. Aplique `apps/api/scripts/user-collections-schema.sql` ao banco usado pela API antes de testar as coleções autenticadas. Não aplique a configuração de Auth à branch principal sem intenção explícita. Em produção, configure a origem confiável da aplicação e credenciais próprias para Google OAuth.
+O login é opcional. Para desenvolvimento com Neon Auth, use uma branch isolada com `auth: true` em `neon.ts` (por exemplo, `neon checkout dev-auth --create --no-env-pull`) e obtenha somente as variáveis de Auth com `neon env pull --service auth --file .env.local`. O frontend lê `NEON_AUTH_BASE_URL` dessa configuração; a API também lê `NEON_AUTH_BASE_URL` e `NEON_AUTH_JWKS_URL` do `.env.local` na raiz. O cadastro por e-mail exige um código de confirmação de seis dígitos, enviado pelo provedor compartilhado do Neon Auth (`auth@mail.myneon.app`). A recuperação de senha também usa o envio de e-mail gerenciado pelo Neon Auth; os links de redefinição expiram em 15 minutos. Esses remetentes são gerenciados pelo Neon e não precisam de configuração no `.env`; para usar outro remetente, configure um provedor SMTP personalizado em Settings → Better Auth na branch correspondente. Aplique `apps/api/scripts/user-collections-schema.sql` ao banco usado pela API antes de testar as coleções autenticadas. Não aplique a configuração de Auth à branch principal sem intenção explícita. Em produção, configure a origem confiável da aplicação e credenciais próprias para Google OAuth.
 
 Para compilar a API, execute `npm run build:api`. Para compilar e validar as rotas e middlewares sem conectar ao banco, execute `npm test --workspace @biodex/api`. Em desenvolvimento, `tsx watch` executa os arquivos TypeScript diretamente; em produção, `npm run start:api` executa a saída compilada em `apps/api/dist`.
 
@@ -89,6 +91,8 @@ O deploy usa um único Cloudflare Worker para servir o frontend React/Vite como 
    npm run deploy:cloudflare
    ```
 
+   Configure também `ROOT_USER_ID` como Secret do Worker `biodex` em **Settings → Variables and Secrets**, usando o ID da sua conta no Neon Auth de produção. O Worker lê esse secret para determinar o papel root; o valor em `apps/api/.env` só vale para a API local.
+
 4. O endpoint `/health` valida a conexão e as tabelas necessárias do catálogo. Se retornar `503`, aplique antes o schema de cache e importe os dados do catálogo.
 
 Para criar um Preview pelo Cloudflare Workers Builds, mantenha o build como `npm run build --workspace @biodex/web -- --mode cloudflare` e use `npm run preview:cloudflare` como comando de deploy. O script usa `apps/web/dist/worker/wrangler.json`, gerado pelo plugin Vite: além do bloco `previews`, ele contém o `assets.directory` que o build calcula e que o comando Preview exige. Não execute `npx wrangler preview` com o `wrangler.jsonc` fonte, pois esse arquivo não contém o caminho dos assets compilados. Configure bindings de Preview somente para recursos de staging/teste.
@@ -104,6 +108,18 @@ npm run migrate:catalog-cache
 ```
 
 A migração é idempotente. Em Neon, mantenha `DATABASE_URL` pooled para a API e configure também `DATABASE_URL_UNPOOLED`; o comando valida que ambas apontam para o mesmo banco e usa a conexão direta. Os importadores do Catalogue of Life e da PBDB também preparam esse schema. O health check verifica as tabelas do catálogo e dos caches e retorna `503` quando a instalação estiver incompleta.
+
+Para habilitar contribuições, aplique também o schema de papéis, conteúdo editorial e sugestões de foto:
+
+```sh
+npm run migrate:contributions
+```
+
+Essa migração é idempotente e deve ser aplicada ao banco usado pela API antes do deploy. Em Neon, use uma branch de desenvolvimento e configure `DATABASE_URL_UNPOOLED` junto da URL pooled. Configure `ROOT_USER_ID` na API com o `sub` da conta que será o único root; esse papel é derivado da variável e não pode ser concedido pela interface.
+
+O perfil armazena data de nascimento e profissão, mas não exibe a idade. CPF e data de nascimento ficam imutáveis após o primeiro salvamento. O CPF é validado, único e criptografado pela API; ele nunca é retornado completo, e o perfil exibe apenas uma máscara com os quatro últimos dígitos (por exemplo, `xxx.xxx.x65-05`). Configure `CPF_ENCRYPTION_KEY` com uma chave aleatória de 32 bytes codificada em Base64, tanto em `apps/api/.env` quanto como Secret do Worker `biodex`. Gere-a com `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`. Não compartilhe nem altere essa chave sem planejar a migração dos CPFs já cadastrados.
+
+O registro profissional é opcional. Para conceder curadoria, um admin ou root deve conferir o conselho e o número em uma fonte oficial e marcar o registro como ativo na área de contribuições. Alterar esses dados invalida a revisão anterior e remove o papel de curador até uma nova validação e concessão.
 
 ## Importação do Catalogue of Life
 

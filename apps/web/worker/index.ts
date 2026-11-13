@@ -6,6 +6,9 @@ import { createEditorialCollectionsService } from '../../api/src/catalog/service
 import { isCatalogReady } from '../../api/src/database/catalog-readiness.js';
 import { createAccessTokenVerifier } from '../../api/src/auth/token-verifier.js';
 import { createUserCollectionsService } from '../../api/src/collections/user-collections.js';
+import { createUserAccessService } from '../../api/src/contributions/users.js';
+import { createEditorialContentService } from '../../api/src/contributions/editorial-content.js';
+import { createPhotoSuggestionService } from '../../api/src/contributions/photo-suggestions.js';
 import { createApp } from '../../api/src/app.js';
 import type { CatalogDatabase } from '../../api/src/http/catalog.types.js';
 
@@ -51,6 +54,13 @@ const app = createApp({
   catalog: createCatalogController({ runtime }),
   editorialCollections: createEditorialCollectionsService(database),
   userCollections: createUserCollectionsService(database),
+  userAccess: createUserAccessService(
+    database,
+    env.ROOT_USER_ID ?? '',
+    env.CPF_ENCRYPTION_KEY ?? '',
+  ),
+  editorialContent: createEditorialContentService(database),
+  photoSuggestions: createPhotoSuggestionService(database),
   verifyAccessToken: createAccessTokenVerifier(authBaseUrl, authJwksUrl),
   healthCheck: () => isCatalogReady(database),
   config: { corsOrigins },

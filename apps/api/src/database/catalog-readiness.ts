@@ -8,6 +8,7 @@ const REQUIRED_CATALOG_TABLES = [
   'public.col_catalog_import',
   'public.col_species_image_cache',
   'public.col_species_enrichment_cache',
+  'public.col_species_article_cache',
 ];
 
 export async function isCatalogReady(db: CatalogDatabase): Promise<boolean> {

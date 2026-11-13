@@ -14,9 +14,7 @@ export function useSpeciesDetails(species: SpeciesDetail) {
   const imageQuery = useQuery({
     queryKey: ['species-image', species.id, 'detail-gallery-v2'],
     queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal, true),
-    staleTime: (query) => query.state.data?.url
-      ? 30 * 24 * 60 * 60 * 1000
-      : 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
   });
@@ -42,8 +40,17 @@ export function useSpeciesDetails(species: SpeciesDetail) {
     : imageQuery.data
       ? [imageQuery.data]
       : [];
+  const bestPhoto = apiImages.find((photo) => photo.isBestPhoto);
   const photos: SpeciesDetailPhoto[] = [
-    ...(editorialImage
+    ...(bestPhoto
+      ? [{
+          url: bestPhoto.url,
+          fullscreenUrl: bestPhoto.fullscreenUrl ?? bestPhoto.url,
+          alt: species.image?.alternativeText ?? species.commonName,
+          credit: bestPhoto,
+        }]
+      : []),
+    ...(editorialImage && editorialImage !== bestPhoto?.url
       ? [{
           url: editorialImage,
           fullscreenUrl: editorialImage,
@@ -51,14 +58,16 @@ export function useSpeciesDetails(species: SpeciesDetail) {
           credit: null,
         }]
       : []),
-    ...apiImages.map((photo: SpeciesImagePhoto) => ({
+    ...apiImages
+      .filter((photo) => photo.url !== bestPhoto?.url)
+      .map((photo: SpeciesImagePhoto) => ({
       url: photo.url,
       fullscreenUrl: photo.fullscreenUrl ?? photo.url,
       alt: photo.isRepresentative
         ? `Imagem representativa de ${photo.representativeRank ?? 'grupo taxonômico'} ${photo.representativeTaxonName ?? species.scientificName}`
         : (species.image?.alternativeText ?? species.commonName),
       credit: photo,
-    })),
+      })),
   ];
   const visiblePhotos = photos.filter((photo) => !failedImageUrls.includes(photo.url));
   const selectedPhoto = visiblePhotos[selectedImageIndex] ?? visiblePhotos[0];

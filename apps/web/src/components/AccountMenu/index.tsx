@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Bookmark, ChevronDown, LogOut, UserRound } from 'lucide-react';
+import { ArrowUpRight, Bookmark, ChevronDown, LogOut, Sprout, UserRound } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import {
   Avatar,
@@ -124,6 +124,14 @@ export function AccountMenu() {
           >
             <UserRound size={16} aria-hidden="true" />
             Meu perfil
+          </MenuLink>
+          <MenuLink
+            href="/contributions"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+          >
+            <Sprout size={16} aria-hidden="true" />
+            Contribuições
           </MenuLink>
           <DropdownButton
             type="button"

@@ -23,11 +23,17 @@ const SpeciesComparisonPage = lazy(() =>
     default: page,
   })),
 );
+const ContributionsPage = lazy(() =>
+  import('../ContributionsPage').then(({ ContributionsPage: page }) => ({
+    default: page,
+  })),
+);
 
 export function App() {
   const route = useAppRoute();
   const { status } = useAuth();
   const isProtectedRoute = route.page === 'profile'
+    || route.page === 'contributions'
     || (route.page === 'collections' && route.collectionId !== 'shared');
   const returnTo = `${window.location.pathname}${window.location.search}`;
 
@@ -38,21 +44,30 @@ export function App() {
 
   if (isProtectedRoute && status !== 'authenticated') {
     const isProfile = route.page === 'profile';
+    const isContributions = route.page === 'contributions';
     const isCheckingSession = status === 'loading';
     return (
       <LoadingScreen
-        label={isProfile ? 'PERFIL' : 'MINHAS COLEÇÕES'}
+        label={isProfile ? 'PERFIL' : isContributions ? 'CONTRIBUIÇÕES' : 'MINHAS COLEÇÕES'}
         items={isProfile
           ? [{ label: 'Catálogo', href: '/catalog' }, { label: 'Perfil' }]
-          : [{ label: 'Catálogo', href: '/catalog' }, { label: 'Minhas coleções' }]}
+          : isContributions
+            ? [{ label: 'Catálogo', href: '/catalog' }, { label: 'Contribuições' }]
+            : [{ label: 'Catálogo', href: '/catalog' }, { label: 'Minhas coleções' }]}
         backHref="/catalog"
         backLabel="Voltar ao catálogo"
         title={isCheckingSession
-          ? isProfile ? 'Preparando seu perfil' : 'Abrindo suas coleções'
+          ? isProfile
+            ? 'Preparando seu perfil'
+            : isContributions
+              ? 'Abrindo suas contribuições'
+              : 'Abrindo suas coleções'
           : 'Acesso necessário'}
         description={isCheckingSession
           ? 'Estamos conferindo sua sessão para continuar sua jornada pelo Biodex.'
-          : 'Entre na sua conta para acessar seu perfil e suas coleções pessoais.'}
+          : isContributions
+            ? 'Entre na sua conta para acessar suas contribuições no Biodex.'
+            : 'Entre na sua conta para acessar seu perfil e suas coleções pessoais.'}
         busy={isCheckingSession}
       />
     );
@@ -63,6 +78,24 @@ export function App() {
   else if (route.page === 'landing') page = <LandingPage />;
   else if (route.page === 'login') page = <AuthPage />;
   else if (route.page === 'profile') page = <ProfilePage />;
+  else if (route.page === 'contributions') {
+    page = (
+      <Suspense
+        fallback={
+          <LoadingScreen
+            label="CONTRIBUIÇÕES"
+            items={[{ label: 'Catálogo', href: '/catalog' }, { label: 'Contribuições' }]}
+            backHref="/profile"
+            backLabel="Voltar ao perfil"
+            title="Preparando seu espaço de contribuições"
+            description="Estamos carregando as permissões e atividades da sua conta."
+          />
+        }
+      >
+        <ContributionsPage />
+      </Suspense>
+    );
+  }
   else if (route.page === 'species') page = <SpeciesDetailPage externalId={route.externalId} />;
   else if (route.page === 'catalog') page = <CatalogPage />;
   else if (route.page === 'compare') {

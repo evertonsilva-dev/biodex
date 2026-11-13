@@ -44,9 +44,7 @@ export function useSpeciesCard(
     queryKey: ['species-image', species.id, includeGallery ? 'detail-gallery-v2' : 'hierarchical-v3'],
     queryFn: ({ signal }) => getSpeciesImage(species.id, species.scientificName, signal, includeGallery),
     enabled: isNearViewport && (!editorialImage || includeGallery),
-    staleTime: (query) => query.state.data?.url
-      ? 30 * 24 * 60 * 60 * 1000
-      : 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 60 * 24 * 60 * 60 * 1000,
     retry: false,
   });
@@ -55,9 +53,13 @@ export function useSpeciesCard(
     : imageQuery.data
       ? [imageQuery.data]
       : [];
-  const selectedApiImage = apiImages.find(({ url }) => !failedImageUrls.includes(url));
+  const selectedApiImage = apiImages.find(
+    ({ isBestPhoto, url }) => isBestPhoto && !failedImageUrls.includes(url),
+  ) ?? apiImages.find(({ url }) => !failedImageUrls.includes(url));
   const useEditorialImage = Boolean(
-    editorialImage && !failedImageUrls.includes(editorialImage),
+    !selectedApiImage?.isBestPhoto
+      && editorialImage
+      && !failedImageUrls.includes(editorialImage),
   );
   const image = useEditorialImage ? editorialImage : selectedApiImage?.url;
   const imageCredit = useEditorialImage ? null : selectedApiImage ?? null;

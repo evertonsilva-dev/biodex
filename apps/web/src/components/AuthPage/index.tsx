@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { LoaderCircle, LogIn, UserPlus } from 'lucide-react';
+import { KeyRound, LoaderCircle, LogIn, Mail, UserPlus } from 'lucide-react';
 import { TopBar } from '../TopBar';
 import { PageNavigation } from '../PageNavigation';
 import { useAuth } from '../../auth/AuthProvider';
@@ -17,6 +17,7 @@ import {
   Input,
   Page,
   PrimaryButton,
+  SecondaryButton,
   SwitchMode,
 } from './styles';
 
@@ -53,29 +54,65 @@ export function AuthPage() {
     signInWithEmail,
     signInWithGoogle,
     signUpWithEmail,
+    verifyEmailWithCode,
+    resendEmailVerificationCode,
+    requestPasswordReset,
+    resetPassword,
   } = useAuth();
   const params = new URLSearchParams(window.location.search);
-  const isSignUp = params.get('mode') === 'signup';
+  const mode = params.get('mode');
+  const isSignUp = mode === 'signup';
+  const isForgotPassword = mode === 'forgot-password';
+  const isResetPassword = mode === 'reset-password';
+  const resetToken = params.get('token') ?? '';
   const returnTo = getSafeReturnTo();
   const callbackURL = new URL(returnTo, window.location.origin).toString();
+  const resetCallback = new URL('/login', window.location.origin);
+  resetCallback.searchParams.set('mode', 'reset-password');
+  resetCallback.searchParams.set('returnTo', returnTo);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [awaitingEmailVerification, setAwaitingEmailVerification] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() => (
+    params.get('passwordReset') === 'success'
+      ? 'Senha redefinida. Entre com sua nova senha.'
+      : null
+  ));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isResetPassword && !resetToken) {
+      setFormError('Este link de redefinição é inválido ou expirou. Solicite um novo.');
+      return;
+    }
+    if (isResetPassword && newPassword !== confirmPassword) {
+      setFormError('As senhas não coincidem.');
+      return;
+    }
     setIsSubmitting(true);
     setFormError(null);
     setNotice(null);
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        await requestPasswordReset(email.trim(), resetCallback.toString());
+        setNotice('Se este e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.');
+      } else if (isResetPassword) {
+        await resetPassword(resetToken, newPassword);
+        window.location.assign(
+          `/login?mode=signin&passwordReset=success&returnTo=${encodeURIComponent(returnTo)}`,
+        );
+      } else if (isSignUp) {
         const signedIn = await signUpWithEmail(name.trim(), email.trim(), password);
         if (signedIn) {
           window.location.assign(returnTo);
         } else {
+          setAwaitingEmailVerification(true);
           setNotice('Conta criada. Verifique seu e-mail para concluir o acesso.');
         }
       } else {
@@ -84,6 +121,39 @@ export function AuthPage() {
       }
     } catch (reason) {
       setFormError(reason instanceof Error ? reason.message : 'Não foi possível concluir a operação.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function submitVerification(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      const signedIn = await verifyEmailWithCode(email.trim(), verificationCode.trim());
+      window.location.assign(
+        signedIn
+          ? returnTo
+          : `/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    } catch (reason) {
+      setFormError(reason instanceof Error ? reason.message : 'Não foi possível confirmar seu e-mail.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function resendVerificationCode() {
+    setIsSubmitting(true);
+    setFormError(null);
+    setNotice(null);
+    try {
+      await resendEmailVerificationCode(email.trim());
+      setNotice('Enviamos um novo código. Verifique sua caixa de entrada.');
+    } catch (reason) {
+      setFormError(reason instanceof Error ? reason.message : 'Não foi possível reenviar o código.');
     } finally {
       setIsSubmitting(false);
     }
@@ -102,6 +172,8 @@ export function AuthPage() {
   }
 
   const modeHref = `/login?mode=${isSignUp ? 'signin' : 'signup'}&returnTo=${encodeURIComponent(returnTo)}`;
+  const signInHref = `/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`;
+  const forgotPasswordHref = `/login?mode=forgot-password&returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <Page>
@@ -109,19 +181,53 @@ export function AuthPage() {
       <PageNavigation
         items={[
           { label: 'Catálogo', href: '/catalog' },
-          { label: isSignUp ? 'Criar conta' : 'Entrar' },
+          {
+            label: isResetPassword
+              ? 'Redefinir senha'
+              : isForgotPassword
+                ? 'Esqueci minha senha'
+                : isSignUp
+                  ? 'Criar conta'
+                  : 'Entrar',
+          },
         ]}
         backHref="/catalog"
         backLabel="Voltar ao catálogo"
       />
       <AuthLayout>
         <Heading>
-          <p>{isSignUp ? 'Faça parte do Biodex' : 'Bem-vindo de volta'}</p>
-          <h1>{isSignUp ? 'Crie sua conta' : 'Entre na sua conta'}</h1>
+          <p>
+            {awaitingEmailVerification
+              ? 'Confirmação de conta'
+              : isForgotPassword
+                ? 'Recuperação de conta'
+                : isResetPassword
+                  ? 'Nova senha'
+              : isSignUp
+                ? 'Faça parte do Biodex'
+                : 'Bem-vindo de volta'}
+          </p>
+          <h1>
+            {awaitingEmailVerification
+              ? 'Confirme seu e-mail'
+              : isForgotPassword
+                ? 'Recupere sua senha'
+                : isResetPassword
+                  ? 'Defina uma nova senha'
+              : isSignUp
+                ? 'Crie sua conta'
+                : 'Entre na sua conta'}
+          </h1>
           <span>
-            {isSignUp
-              ? 'Salve suas espécies favoritas e organize suas próprias coleções.'
-              : 'Acesse suas coleções pessoais e continue suas descobertas.'}
+            {awaitingEmailVerification
+              ? `Digite o código enviado para ${email}.`
+              : isForgotPassword
+                ? 'Informe seu e-mail e enviaremos um link para redefinir sua senha.'
+                : isResetPassword
+                  ? 'Escolha uma nova senha para acessar sua conta.'
+              : isSignUp
+                ? 'Salve suas espécies favoritas e organize suas próprias coleções.'
+                : 'Acesse suas coleções pessoais e continue suas descobertas.'}
           </span>
         </Heading>
 
@@ -139,75 +245,202 @@ export function AuthPage() {
                 </ErrorMessage>
               )}
               {(formError || error) && <ErrorMessage role="alert">{formError || error}</ErrorMessage>}
-              {notice && <InfoMessage role="status">{notice}</InfoMessage>}
-              {isGoogleLoginEnabled && (
+              {awaitingEmailVerification ? (
                 <>
-                  <GoogleAction>
-                    <GoogleButton
+                  <InfoMessage role="status">
+                    {notice ?? `Enviamos um código de confirmação para ${email}.`}
+                  </InfoMessage>
+                  <form onSubmit={(event) => void submitVerification(event)}>
+                    <Field>
+                      Código de confirmação
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        value={verificationCode}
+                        onChange={(event) => {
+                          setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+                          setFormError(null);
+                        }}
+                        required
+                        minLength={6}
+                        maxLength={6}
+                      />
+                    </Field>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={!isConfigured || isSubmitting}
+                    >
+                      {isSubmitting ? <LoaderCircle size={17} aria-hidden="true" /> : <UserPlus size={17} aria-hidden="true" />}
+                      {isSubmitting ? 'Aguarde…' : 'Confirmar e-mail'}
+                    </PrimaryButton>
+                    <SecondaryButton
                       type="button"
-                      onClick={() => void continueWithGoogle()}
+                      onClick={() => void resendVerificationCode()}
+                      disabled={!isConfigured || isSubmitting}
+                    >
+                      Reenviar código
+                    </SecondaryButton>
+                  </form>
+                  <SwitchMode>
+                    Já confirmou seu e-mail?{' '}
+                    <a href={`/login?mode=signin&returnTo=${encodeURIComponent(returnTo)}`}>Entrar</a>
+                  </SwitchMode>
+                </>
+              ) : isForgotPassword ? (
+                <>
+                  {notice && <InfoMessage role="status">{notice}</InfoMessage>}
+                  <form onSubmit={(event) => void submit(event)}>
+                    <Field>
+                      E-mail
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        autoComplete="email"
+                        required
+                      />
+                    </Field>
+                    <PrimaryButton
+                      type="submit"
                       disabled={!isConfigured || isSubmitting || status === 'loading'}
                     >
-                      <GoogleMark />
-                      Continuar com Google
-                    </GoogleButton>
-                  </GoogleAction>
-                  <Divider><span>ou use seu e-mail</span></Divider>
+                      {isSubmitting ? <LoaderCircle size={17} aria-hidden="true" /> : <Mail size={17} aria-hidden="true" />}
+                      {isSubmitting ? 'Aguarde…' : 'Enviar link de redefinição'}
+                    </PrimaryButton>
+                  </form>
+                  <SwitchMode>
+                    Lembrou sua senha? <a href={signInHref}>Voltar para entrar</a>
+                  </SwitchMode>
+                </>
+              ) : isResetPassword ? (
+                resetToken ? (
+                  <form onSubmit={(event) => void submit(event)}>
+                    <Field>
+                      Nova senha
+                      <Input
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => {
+                          setNewPassword(event.target.value);
+                          setFormError(null);
+                        }}
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      Confirme a nova senha
+                      <Input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => {
+                          setConfirmPassword(event.target.value);
+                          setFormError(null);
+                        }}
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                      />
+                    </Field>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={!isConfigured || isSubmitting || status === 'loading'}
+                    >
+                      {isSubmitting ? <LoaderCircle size={17} aria-hidden="true" /> : <KeyRound size={17} aria-hidden="true" />}
+                      {isSubmitting ? 'Aguarde…' : 'Salvar nova senha'}
+                    </PrimaryButton>
+                  </form>
+                ) : (
+                  <>
+                    <ErrorMessage role="alert">
+                      Este link de redefinição é inválido ou expirou. Solicite um novo.
+                    </ErrorMessage>
+                    <SwitchMode>
+                      <a href={forgotPasswordHref}>Solicitar novo link</a>
+                    </SwitchMode>
+                  </>
+                )
+              ) : (
+                <>
+                  {notice && <InfoMessage role="status">{notice}</InfoMessage>}
+                  {isGoogleLoginEnabled && (
+                    <>
+                      <GoogleAction>
+                        <GoogleButton
+                          type="button"
+                          onClick={() => void continueWithGoogle()}
+                          disabled={!isConfigured || isSubmitting || status === 'loading'}
+                        >
+                          <GoogleMark />
+                          Continuar com Google
+                        </GoogleButton>
+                      </GoogleAction>
+                      <Divider><span>ou use seu e-mail</span></Divider>
+                    </>
+                  )}
+                  <form onSubmit={(event) => void submit(event)}>
+                    {isSignUp && (
+                      <Field>
+                        Nome
+                        <Input
+                          type="text"
+                          value={name}
+                          onChange={(event) => setName(event.target.value)}
+                          autoComplete="name"
+                          required
+                          maxLength={100}
+                        />
+                      </Field>
+                    )}
+                    <Field>
+                      E-mail
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        autoComplete="email"
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      Senha
+                      <Input
+                        type="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                        required
+                        minLength={8}
+                      />
+                    </Field>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={!isConfigured || isSubmitting || status === 'loading'}
+                    >
+                      {isSubmitting ? (
+                        <LoaderCircle size={17} aria-hidden="true" />
+                      ) : isSignUp ? (
+                        <UserPlus size={17} aria-hidden="true" />
+                      ) : (
+                        <LogIn size={17} aria-hidden="true" />
+                      )}
+                      {isSubmitting ? 'Aguarde…' : isSignUp ? 'Criar conta' : 'Entrar'}
+                    </PrimaryButton>
+                  </form>
+                  <SwitchMode>
+                    {!isSignUp && (
+                      <>
+                        <a href={forgotPasswordHref}>Esqueci minha senha</a>
+                        {' · '}
+                      </>
+                    )}
+                    {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}{' '}
+                    <a href={modeHref}>{isSignUp ? 'Entrar' : 'Criar conta'}</a>
+                  </SwitchMode>
                 </>
               )}
-              <form onSubmit={(event) => void submit(event)}>
-                {isSignUp && (
-                  <Field>
-                    Nome
-                    <Input
-                      type="text"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      autoComplete="name"
-                      required
-                      maxLength={100}
-                    />
-                  </Field>
-                )}
-                <Field>
-                  E-mail
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    autoComplete="email"
-                    required
-                  />
-                </Field>
-                <Field>
-                  Senha
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                    required
-                    minLength={8}
-                  />
-                </Field>
-                <PrimaryButton
-                  type="submit"
-                  disabled={!isConfigured || isSubmitting || status === 'loading'}
-                >
-                  {isSubmitting ? (
-                    <LoaderCircle size={17} aria-hidden="true" />
-                  ) : isSignUp ? (
-                    <UserPlus size={17} aria-hidden="true" />
-                  ) : (
-                    <LogIn size={17} aria-hidden="true" />
-                  )}
-                  {isSubmitting ? 'Aguarde…' : isSignUp ? 'Criar conta' : 'Entrar'}
-                </PrimaryButton>
-              </form>
-              <SwitchMode>
-                {isSignUp ? 'Já tem uma conta?' : 'Ainda não tem uma conta?'}{' '}
-                <a href={modeHref}>{isSignUp ? 'Entrar' : 'Criar conta'}</a>
-              </SwitchMode>
             </>
           )}
         </FormSection>

@@ -16,6 +16,7 @@ export function useAppRoute(): AppRoute {
   const isErrorPage = pathname === '/error';
   const isLogin = pathname === '/login' || pathname === '/login/';
   const isProfile = pathname === '/profile' || pathname === '/profile/';
+  const isContributions = pathname === '/contributions' || pathname === '/contributions/';
   const isLanding = pathname === '/' || pathname === '';
   const isCatalog = pathname === '/catalog' || pathname === '/catalog/';
   const isCompare = pathname === '/compare' || pathname === '/compare/';
@@ -45,6 +46,7 @@ export function useAppRoute(): AppRoute {
       !isErrorPage
       && !isLogin
       && !isProfile
+      && !isContributions
       && !isLanding
       && !isCatalog
       && !isCompare
@@ -54,11 +56,12 @@ export function useAppRoute(): AppRoute {
     ) {
       redirectToError('not-found');
     }
-  }, [isErrorPage, isLogin, isProfile, isLanding, isCatalog, isCompare, isCollections, isEditorialCollection, externalId]);
+  }, [isErrorPage, isLogin, isProfile, isContributions, isLanding, isCatalog, isCompare, isCollections, isEditorialCollection, externalId]);
 
   if (isErrorPage) return { page: 'error' };
   if (isLogin) return { page: 'login' };
   if (isProfile) return { page: 'profile' };
+  if (isContributions) return { page: 'contributions' };
   if (externalId !== null) return { page: 'species', externalId };
   if (isCompare) return { page: 'compare' };
   if (editorialCollectionSlug !== null) {
