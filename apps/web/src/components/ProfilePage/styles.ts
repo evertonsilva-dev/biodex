@@ -79,6 +79,112 @@ export const Value = styled.span`
   text-transform: none;
 `;
 
+export const ProfileForm = styled.form`
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid ${({ theme }) => theme.colors.line};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+`;
+
+export const FormGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const InputField = styled.label`
+  display: grid;
+  min-width: 0;
+  gap: 0.4rem;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+`;
+
+export const Input = styled.input`
+  width: 100%;
+  min-height: 2.7rem;
+  padding: 0.7rem 0.25rem;
+  border: 0;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.line};
+  border-radius: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.ink};
+  font: inherit;
+  font-size: 0.9rem;
+  text-transform: none;
+
+  &:focus-visible {
+    border-bottom: 2px solid ${({ theme }) => theme.colors.green};
+    outline: 0;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+`;
+
+export const HelpText = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.muted};
+  font-size: 0.8rem;
+  line-height: 1.55;
+`;
+
+export const ProfileStatus = styled.p`
+  margin: 0;
+  padding-left: 0.8rem;
+  border-left: 2px solid ${({ theme }) => theme.colors.green};
+  color: ${({ theme }) => theme.colors.ink};
+  font-size: 0.85rem;
+  line-height: 1.55;
+`;
+
+export const FormError = styled.p`
+  margin: 0;
+  color: #a12f22;
+  font-size: 0.82rem;
+  line-height: 1.5;
+`;
+
+export const FormActions = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+`;
+
+export const SaveButton = styled.button`
+  min-height: 2.5rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid ${({ theme }) => theme.colors.green};
+  border-radius: 0;
+  background: ${({ theme }) => theme.colors.green};
+  color: ${({ theme }) => theme.colors.paper};
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.green};
+    outline-offset: 3px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`;
+
 export const EmptyMessage = styled.div`
   .eyebrow {
     margin: 0 0 0.8rem;

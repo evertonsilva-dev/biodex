@@ -8,6 +8,7 @@ export function createCatalogRouter(catalog: CatalogController) {
 
   router.get('/species', controller.species);
   router.get('/suggestions', controller.suggestions);
+  router.get('/species/:id/articles', controller.speciesArticles);
   router.get('/species/:id/enrichment', controller.speciesEnrichment);
   router.get('/species/:id', controller.speciesDetails);
   router.get('/kingdoms', controller.kingdoms);

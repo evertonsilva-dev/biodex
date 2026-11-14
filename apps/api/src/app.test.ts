@@ -18,6 +18,32 @@ const userCollection = {
   name: 'Aves',
   speciesIds: ['KF8T'],
 };
+const photoSuggestion = {
+  id: '1b9f4f31-d4f4-4c7f-a54d-eeb2d8afcce3',
+  speciesId: 'KF8T',
+  scientificName: 'Panthera leo',
+  photo: {
+    url: 'https://example.org/lion.jpg',
+    source: 'GBIF',
+    attribution: 'Photographer',
+    license: 'CC BY',
+    referenceUrl: 'https://example.org/record',
+  },
+  status: 'pending' as const,
+  submittedBy: 'test-user',
+  reviewedBy: null,
+  reviewedAt: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+const userProfile = {
+  birthDate: '1990-04-15',
+  profession: 'Bióloga',
+  cpfLastFour: '1234',
+  professionalCouncil: 'CRBio-01',
+  professionalRegistrationNumber: '12345',
+  professionalRegistrationStatus: 'pending' as const,
+  registrationVerifiedAt: null,
+};
 
 const app = createApp({
   catalog: {
@@ -35,6 +61,9 @@ const app = createApp({
     },
     speciesEnrichment: async (context) => {
       context.body = { data: { id: context.params.id, enrichment: true } };
+    },
+    speciesArticles: async (context) => {
+      context.body = { data: [{ id: context.params.id, title: 'Test article' }] };
     },
     kingdoms: async (context) => {
       context.body = { data: [] };
@@ -67,7 +96,45 @@ const app = createApp({
     }),
     delete: async (ownerId) => ownerId === 'test-user',
   },
-  verifyAccessToken: async (token) => token === 'valid-token' ? 'test-user' : null,
+  userAccess: {
+    getCurrentAccount: async (userId) => ({
+      userId,
+      role: userId === 'test-admin' ? 'admin' : userId === 'test-root' ? 'root' : 'user',
+    }),
+    getProfile: async () => userProfile,
+    updateProfile: async () => userProfile,
+    reviewProfessionalRegistration: async () => {},
+    listUsers: async () => [],
+    setRole: async () => {},
+  },
+  editorialContent: {
+    listForAccount: async () => [],
+    create: async () => {
+      throw new Error('Not used in this test.');
+    },
+    update: async () => null,
+    delete: async () => false,
+  },
+  photoSuggestions: {
+    submit: async () => {
+      throw new Error('Not used in this test.');
+    },
+    listMine: async () => [],
+    getMineForSpecies: async (userId, speciesId) => (
+      userId === 'test-user' && speciesId === 'KF8T' ? photoSuggestion : null
+    ),
+    listPending: async () => [],
+    review: async () => null,
+  },
+  verifyAccessToken: async (token) => (
+    token === 'valid-token'
+      ? 'test-user'
+      : token === 'admin-token'
+        ? 'test-admin'
+        : token === 'root-token'
+          ? 'test-root'
+          : null
+  ),
   healthCheck: async () => true,
   config: { corsOrigins: ['http://localhost:5173'] },
 });
@@ -99,6 +166,12 @@ test('Express app preserves health, catalog, CORS, and error responses', async (
     const suggestions = await fetch(`${baseUrl}/api/catalog/suggestions?q=one`);
     assert.equal(suggestions.status, 200);
     assert.deepEqual(await suggestions.json(), { data: [] });
+
+    const speciesArticles = await fetch(`${baseUrl}/api/catalog/species/test-species/articles`);
+    assert.equal(speciesArticles.status, 200);
+    assert.deepEqual(await speciesArticles.json(), {
+      data: [{ id: 'test-species', title: 'Test article' }],
+    });
 
     const editorialCollections = await fetch(`${baseUrl}/api/editorial-collections`);
     assert.equal(editorialCollections.status, 200);
@@ -182,6 +255,105 @@ test('Express app preserves health, catalog, CORS, and error responses', async (
     assert.equal(deletedUserCollection.status, 200);
     assert.deepEqual(await deletedUserCollection.json(), {
       data: { deleted: true },
+    });
+
+    const unauthenticatedContributions = await fetch(`${baseUrl}/api/contributions/me`);
+    assert.equal(unauthenticatedContributions.status, 401);
+
+    const currentAccount = await fetch(`${baseUrl}/api/contributions/me`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+    assert.equal(currentAccount.status, 200);
+    assert.deepEqual(await currentAccount.json(), {
+      data: { userId: 'test-user', role: 'user' },
+    });
+
+    const profile = await fetch(`${baseUrl}/api/contributions/profile`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+    assert.equal(profile.status, 200);
+    assert.deepEqual(await profile.json(), { data: userProfile });
+
+    const invalidProfile = await fetch(`${baseUrl}/api/contributions/profile`, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer valid-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        birthDate: '2099-02-31',
+        profession: 'Bióloga',
+        professionalCouncil: '',
+        professionalRegistrationNumber: '',
+      }),
+    });
+    assert.equal(invalidProfile.status, 400);
+
+    const deniedRegistrationReview = await fetch(
+      `${baseUrl}/api/contributions/users/test-user/professional-registration`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer valid-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'active' }),
+      },
+    );
+    assert.equal(deniedRegistrationReview.status, 403);
+
+    const currentSpeciesSuggestion = await fetch(
+      `${baseUrl}/api/contributions/photo-suggestions/species/KF8T`,
+      { headers: { Authorization: 'Bearer valid-token' } },
+    );
+    assert.equal(currentSpeciesSuggestion.status, 200);
+    assert.deepEqual(await currentSpeciesSuggestion.json(), {
+      data: photoSuggestion,
+    });
+
+    const deniedUserList = await fetch(`${baseUrl}/api/contributions/users`, {
+      headers: { Authorization: 'Bearer valid-token' },
+    });
+    assert.equal(deniedUserList.status, 403);
+
+    const deniedEditorialManagement = await fetch(
+      `${baseUrl}/api/contributions/editorial-content`,
+      { headers: { Authorization: 'Bearer valid-token' } },
+    );
+    assert.equal(deniedEditorialManagement.status, 403);
+
+    const deniedAdminGrant = await fetch(
+      `${baseUrl}/api/contributions/users/test-user/role`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer admin-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      },
+    );
+    assert.equal(deniedAdminGrant.status, 403);
+
+    const adminUsers = await fetch(`${baseUrl}/api/contributions/users`, {
+      headers: { Authorization: 'Bearer admin-token' },
+    });
+    assert.equal(adminUsers.status, 200);
+
+    const rootAdminGrant = await fetch(
+      `${baseUrl}/api/contributions/users/test-user/role`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer root-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: 'admin' }),
+      },
+    );
+    assert.equal(rootAdminGrant.status, 200);
+    assert.deepEqual(await rootAdminGrant.json(), {
+      data: { userId: 'test-user', role: 'admin' },
     });
 
     const missingEditorialCollection = await fetch(

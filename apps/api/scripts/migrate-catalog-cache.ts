@@ -1,11 +1,15 @@
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { CATALOG_CACHE_SCHEMA_SQL } from '../src/database/catalog-cache-schema.js';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(scriptDirectory, '..', '.env') });
+const apiDirectoryCandidate = resolve(scriptDirectory, '..');
+const apiDirectory = basename(apiDirectoryCandidate) === 'dist'
+  ? resolve(apiDirectoryCandidate, '..')
+  : apiDirectoryCandidate;
+dotenv.config({ path: resolve(apiDirectory, '.env') });
 
 function getConnectionOptions(): pg.PoolConfig {
   if (process.env.DATABASE_CLIENT !== 'postgres') {

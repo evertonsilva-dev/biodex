@@ -21,6 +21,7 @@ export interface CatalogController {
   suggestions: CatalogHandler;
   speciesDetails: CatalogHandler;
   speciesEnrichment: CatalogHandler;
+  speciesArticles: CatalogHandler;
   kingdoms: CatalogHandler;
   facets: CatalogHandler;
   image: CatalogHandler;
@@ -31,6 +32,7 @@ export interface CatalogHttpController {
   suggestions: import('express').RequestHandler;
   speciesDetails: import('express').RequestHandler;
   speciesEnrichment: import('express').RequestHandler;
+  speciesArticles: import('express').RequestHandler;
   kingdoms: import('express').RequestHandler;
   facets: import('express').RequestHandler;
   image: import('express').RequestHandler;
@@ -38,6 +40,7 @@ export interface CatalogHttpController {
 
 export interface CatalogRuntime {
   db: CatalogDatabase;
+  openAlexApiKey?: string;
   log: {
     error(message: string): void;
     warn(message: string): void;

@@ -23,4 +23,7 @@
   "vars": {
     "CORS_ORIGINS": "",
   },
+  "secrets": {
+    "required": ["ROOT_USER_ID", "CPF_ENCRYPTION_KEY"],
+  },
 }

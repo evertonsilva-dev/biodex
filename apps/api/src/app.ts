@@ -5,17 +5,24 @@ import { pinoHttp } from 'pino-http';
 import { createCatalogRouter } from './routes/catalog.routes.js';
 import { createEditorialCollectionsRouter } from './routes/editorial-collections.routes.js';
 import { createUserCollectionsRouter } from './routes/user-collections.routes.js';
+import { createContributionsRouter } from './routes/contributions.routes.js';
 import { errorHandler, notFoundHandler, HttpError } from './http/errors.js';
 import type { ApiEnvironment } from './config/env.js';
 import type { CatalogController } from './http/catalog.types.js';
 import type { EditorialCollectionsService } from './catalog/services/editorial-collections.js';
 import type { UserCollectionsService } from './collections/user-collections.js';
+import type { UserAccessService } from './contributions/users.js';
+import type { EditorialContentService } from './contributions/editorial-content.js';
+import type { PhotoSuggestionService } from './contributions/photo-suggestions.js';
 import type { AccessTokenVerifier } from './auth/token-verifier.js';
 
 interface CreateAppOptions {
   catalog: CatalogController;
   editorialCollections: EditorialCollectionsService;
   userCollections: UserCollectionsService;
+  userAccess: UserAccessService;
+  editorialContent: EditorialContentService;
+  photoSuggestions: PhotoSuggestionService;
   verifyAccessToken: AccessTokenVerifier | null;
   healthCheck: () => Promise<boolean>;
   config: Pick<ApiEnvironment, 'corsOrigins'>;
@@ -25,6 +32,9 @@ export function createApp({
   catalog,
   editorialCollections,
   userCollections,
+  userAccess,
+  editorialContent,
+  photoSuggestions,
   verifyAccessToken,
   healthCheck,
   config,
@@ -63,6 +73,15 @@ export function createApp({
   app.use(
     '/api/collections',
     createUserCollectionsRouter(userCollections, verifyAccessToken),
+  );
+  app.use(
+    '/api/contributions',
+    createContributionsRouter(
+      userAccess,
+      editorialContent,
+      photoSuggestions,
+      verifyAccessToken,
+    ),
   );
   app.use(notFoundHandler);
   app.use(errorHandler);

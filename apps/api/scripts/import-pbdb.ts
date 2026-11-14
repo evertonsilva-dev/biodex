@@ -397,6 +397,8 @@ async function main() {
       await client.query(`
         DELETE FROM col_species_enrichment_cache
         WHERE external_id LIKE 'pbdb:%';
+        DELETE FROM col_species_article_cache
+        WHERE external_id LIKE 'pbdb:%';
         TRUNCATE TABLE col_species_image_cache;
       `);
       await client.query(`

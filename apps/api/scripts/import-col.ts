@@ -582,7 +582,7 @@ async function main() {
         counts.nameRelationRows,
       ]);
       await client.query(INDEXES_SQL);
-      await client.query('TRUNCATE TABLE col_species_image_cache, col_species_enrichment_cache');
+      await client.query('TRUNCATE TABLE col_species_image_cache, col_species_enrichment_cache, col_species_article_cache');
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');

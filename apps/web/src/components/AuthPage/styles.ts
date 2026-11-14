@@ -156,6 +156,21 @@ export const PrimaryButton = styled(Button)`
   &:hover:not(:disabled) { filter: brightness(1.08); }
 `;
 
+export const SecondaryButton = styled.button`
+  justify-self: center;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.green};
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { text-decoration: underline; }
+  &:disabled { opacity: 0.55; cursor: wait; }
+`;
+
 export const Divider = styled.div`
   display: flex;
   align-items: center;

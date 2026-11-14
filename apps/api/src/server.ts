@@ -7,10 +7,14 @@ import createCatalogController from './catalog/controllers/catalog.js';
 import { createEditorialCollectionsService } from './catalog/services/editorial-collections.js';
 import { createAccessTokenVerifier } from './auth/token-verifier.js';
 import { createUserCollectionsService } from './collections/user-collections.js';
+import { createUserAccessService } from './contributions/users.js';
+import { createEditorialContentService } from './contributions/editorial-content.js';
+import { createPhotoSuggestionService } from './contributions/photo-suggestions.js';
 
 const pool = createPool(env);
 const runtime = {
   db: createDatabaseClient(pool),
+  openAlexApiKey: env.openAlexApiKey,
   log: {
     error: (message: string) => console.error(message),
     warn: (message: string) => console.warn(message),
@@ -21,6 +25,13 @@ const app = createApp({
   catalog: createCatalogController({ runtime }),
   editorialCollections: createEditorialCollectionsService(runtime.db),
   userCollections: createUserCollectionsService(runtime.db),
+  userAccess: createUserAccessService(
+    runtime.db,
+    env.rootUserId,
+    env.cpfEncryptionKey,
+  ),
+  editorialContent: createEditorialContentService(runtime.db),
+  photoSuggestions: createPhotoSuggestionService(runtime.db),
   verifyAccessToken: createAccessTokenVerifier(
     env.neonAuthBaseUrl,
     env.neonAuthJwksUrl,

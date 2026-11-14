@@ -33,10 +33,13 @@ class CapturingDatabase implements CatalogDatabase {
   }
 }
 
-function createContext(query: Record<string, unknown>): CatalogRequestContext {
+function createContext(
+  query: Record<string, unknown>,
+  params: Record<string, string> = {},
+): CatalogRequestContext {
   return {
     query,
-    params: {},
+    params,
     body: undefined,
     throw(status, message): never {
       throw new HttpError(status, message);
@@ -304,6 +307,54 @@ test("catalog species expose their source taxon identifier", async () => {
   assert.match(database.queries[2].sql, /t\.external_id, t\.source_id/);
 });
 
+test("species articles use the per-taxon cache when it is fresh", async (context) => {
+  const article = {
+    id: "https://openalex.org/W1",
+    title: "A study of biodiversity",
+    authors: ["First Author"],
+    authorCount: 1,
+    year: 2024,
+    journal: "Journal of Biodiversity",
+    doi: "10.1000/test",
+    url: "https://doi.org/10.1000/test",
+    openAccessUrl: null,
+    isOpenAccess: false,
+  };
+  const queries: Array<{ sql: string; bindings: unknown[] }> = [];
+  const database: CatalogDatabase = {
+    async query<Row extends QueryResultRow = QueryResultRow>(
+      sql: string,
+      bindings: unknown[] = [],
+    ): Promise<{ rows: Row[] }> {
+      queries.push({ sql, bindings });
+      const rows: QueryResultRow[] = sql.includes("unnest(")
+        ? [{ ready: true }]
+        : sql.includes("FROM col_taxon_usage")
+          ? [{ external_id: "col:123", scientific_name: "Test species" }]
+          : sql.includes("FROM col_species_article_cache")
+            ? [{ payload: [article], is_fresh: true }]
+            : [];
+      return { rows: rows as Row[] };
+    },
+  };
+  context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("OpenAlex should not be requested when the cache is fresh.");
+  });
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+  const request = createContext({}, { id: "col:123" });
+
+  await controller.speciesArticles(request);
+
+  assert.deepEqual(request.body, { data: [article] });
+  assert.equal(
+    queries.filter(({ sql }) => sql.includes("FROM col_species_article_cache")).length,
+    1,
+  );
+  assert.equal(queries.length, 3);
+});
+
 test("catalog image lookup uses the taxon ID before the scientific-name fallback", async () => {
   const database = new CapturingDatabase(true);
   const baseQuery = database.query.bind(database);
@@ -366,6 +417,84 @@ test("catalog image lookup uses the taxon ID before the scientific-name fallback
     (context.body as { data: { url: string } }).data.url,
     "https://example.org/lion.jpg",
   );
+});
+
+test("approved best photos become the primary image and lead the gallery", async () => {
+  const database = new CapturingDatabase(true);
+  const baseQuery = database.query.bind(database);
+  const bestPhoto = {
+    url: "https://example.org/curated-lion.jpg",
+    fullscreenUrl: "https://example.org/curated-lion-original.jpg",
+    source: "GBIF",
+    attribution: "Curator",
+    license: "CC BY",
+    referenceUrl: "https://example.org/curated-record",
+  };
+  database.query = (async (sql: string, bindings: unknown[] = []) => {
+    if (sql.includes("FROM col_taxon_usage") && sql.includes("external_id = $1")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          external_id: "col:42",
+          scientific_name: "Panthera leo",
+          genus: "Panthera",
+          family: "Felidae",
+          taxon_order: "Carnivora",
+          taxon_class: "Mammalia",
+          phylum: "Chordata",
+          kingdom: "Animalia",
+          is_virus: false,
+        }],
+      };
+    }
+    if (sql.includes("FROM public.col_species_best_photo")) {
+      database.queries.push({ sql, bindings });
+      return { rows: [{ photo_payload: bestPhoto }] };
+    }
+    if (sql.includes("FROM col_species_image_cache")) {
+      database.queries.push({ sql, bindings });
+      return {
+        rows: [{
+          image_url: "https://example.org/lion.jpg",
+          source: "GBIF",
+          attribution: "Photographer",
+          license: "CC BY",
+          reference_url: "https://example.org/record",
+          is_representative: false,
+          representative_rank: null,
+          representative_taxon_name: null,
+          fallback_version: 1,
+          gallery_images: [{
+            url: "https://example.org/lion.jpg",
+            source: "GBIF",
+            attribution: "Photographer",
+            license: "CC BY",
+            referenceUrl: "https://example.org/record",
+          }],
+          gallery_version: 1,
+        }],
+      };
+    }
+    return baseQuery(sql, bindings);
+  }) as typeof database.query;
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+  const context = createContext({
+    taxonId: "col:42",
+    scientificName: "Panthera leo",
+    gallery: "true",
+  });
+
+  await controller.image(context);
+
+  const data = (context.body as {
+    data: { url: string; isBestPhoto: boolean; images: Array<{ url: string }> };
+  }).data;
+  assert.equal(data.url, bestPhoto.url);
+  assert.equal(data.isBestPhoto, true);
+  assert.equal(data.images[0]?.url, bestPhoto.url);
+  assert.equal(data.images.length, 2);
 });
 
 test("catalog image lookup falls back to scientific name when the taxon ID is unknown", async () => {

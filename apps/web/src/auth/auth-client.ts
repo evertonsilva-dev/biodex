@@ -1,9 +1,12 @@
 import { createInternalNeonAuth } from '@neon/auth';
+import { BetterAuthVanillaAdapter } from '@neon/auth/vanilla/adapters';
 
 const authUrl = import.meta.env.VITE_NEON_AUTH_URL?.trim();
 const neonAuth = authUrl ? createInternalNeonAuth(authUrl) : null;
+const emailOtpAdapter = authUrl ? BetterAuthVanillaAdapter()(authUrl) : null;
 
 export const authClient = neonAuth?.adapter ?? null;
+export const emailOtpClient = emailOtpAdapter?.getBetterAuthInstance() ?? null;
 export const isGoogleLoginEnabled =
   import.meta.env.VITE_GOOGLE_LOGIN_ENABLED !== 'false';
 
