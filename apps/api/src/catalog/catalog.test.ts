@@ -355,6 +355,95 @@ test("species articles use the per-taxon cache when it is fresh", async (context
   assert.equal(queries.length, 3);
 });
 
+test("species articles serve stale cached results when OpenAlex fails", async (context) => {
+  const article = {
+    id: "https://openalex.org/W1",
+    title: "A study of biodiversity",
+    authors: ["First Author"],
+    authorCount: 1,
+    year: 2024,
+    journal: "Journal of Biodiversity",
+    doi: "10.1000/test",
+    url: "https://doi.org/10.1000/test",
+    openAccessUrl: null,
+    isOpenAccess: false,
+  };
+  const database: CatalogDatabase = {
+    async query<Row extends QueryResultRow = QueryResultRow>(
+      sql: string,
+    ): Promise<{ rows: Row[] }> {
+      const rows: QueryResultRow[] = sql.includes("unnest(")
+        ? [{ ready: true }]
+        : sql.includes("FROM col_taxon_usage")
+          ? [{ external_id: "col:123", scientific_name: "Test species" }]
+          : sql.includes("FROM col_species_article_cache")
+            ? [{ payload: [article], is_fresh: false }]
+            : [];
+      return { rows: rows as Row[] };
+    },
+  };
+  context.mock.method(globalThis, "fetch", async () => {
+    throw new Error("OpenAlex responded with status 429.");
+  });
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+  const request = createContext({}, { id: "col:123" });
+
+  await controller.speciesArticles(request);
+
+  assert.deepEqual(request.body, { data: [article] });
+});
+
+test("species articles fall back to Crossref when OpenAlex is unavailable", async (context) => {
+  const queries: Array<{ sql: string; bindings: unknown[] }> = [];
+  const database: CatalogDatabase = {
+    async query<Row extends QueryResultRow = QueryResultRow>(
+      sql: string,
+      bindings: unknown[] = [],
+    ): Promise<{ rows: Row[] }> {
+      queries.push({ sql, bindings });
+      const rows: QueryResultRow[] = sql.includes("unnest(")
+        ? [{ ready: true }]
+        : sql.includes("FROM col_taxon_usage")
+          ? [{ external_id: "col:123", scientific_name: "Panthera leo" }]
+          : [];
+      return { rows: rows as Row[] };
+    },
+  };
+  context.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = new URL(input.toString());
+    if (url.hostname === "api.openalex.org") {
+      return new Response("Rate limited", { status: 429 });
+    }
+    return Response.json({
+      message: {
+        items: [{
+          DOI: "10.1000/lion",
+          title: ["A study of Panthera leo"],
+          author: [{ given: "First", family: "Author" }],
+          published: { "date-parts": [[2024]] },
+          "container-title": ["Journal of Biodiversity"],
+          URL: "https://doi.org/10.1000/lion",
+        }],
+      },
+    });
+  });
+  const controller = createCatalogController({
+    runtime: createRuntime(database),
+  });
+  const request = createContext({}, { id: "col:123" });
+
+  await controller.speciesArticles(request);
+
+  const response = request.body as {
+    data: Array<{ title: string; doi: string }>;
+  };
+  assert.equal(response.data[0].title, "A study of Panthera leo");
+  assert.equal(response.data[0].doi, "10.1000/lion");
+  assert.ok(queries.some(({ sql }) => sql.includes("INSERT INTO col_species_article_cache")));
+});
+
 test("catalog image lookup uses the taxon ID before the scientific-name fallback", async () => {
   const database = new CapturingDatabase(true);
   const baseQuery = database.query.bind(database);

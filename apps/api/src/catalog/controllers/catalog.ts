@@ -4,6 +4,7 @@ import {
 } from "../utils/species-enrichment.js";
 import {
   parseCachedScientificArticles,
+  searchCrossrefArticles,
   searchOpenAlexArticles,
 } from "../services/articles.js";
 import type { ScientificArticle } from "../services/articles.js";
@@ -538,6 +539,24 @@ export default function createCatalogController({
         return;
       }
 
+      const serveStaleArticles = (): boolean => {
+        if (!cachedRow) return false;
+        try {
+          const staleArticles = parseCachedScientificArticles(cachedRow.payload);
+          if (staleArticles.length === 0) return false;
+          runtime.log.warn(
+            `Serving ${staleArticles.length} stale cached articles for "${species.scientific_name}".`,
+          );
+          ctx.body = { data: staleArticles };
+          return true;
+        } catch (error) {
+          runtime.log.warn(
+            `Stale article cache is invalid for "${species.scientific_name}": ${errorMessage(error)}`,
+          );
+          return false;
+        }
+      };
+
       const synonymsResult = await runtime.db.query<{
         scientific_name: string;
       }>(
@@ -575,7 +594,26 @@ export default function createCatalogController({
         runtime.log.warn(
           `OpenAlex article search failed for "${species.scientific_name}": ${errorMessage(error)}`,
         );
-        return ctx.throw(502, "Scientific articles are temporarily unavailable.");
+        try {
+          articles = await searchCrossrefArticles([species.scientific_name]);
+        } catch (crossrefError) {
+          runtime.log.warn(
+            `Crossref article search failed for "${species.scientific_name}": ${errorMessage(crossrefError)}`,
+          );
+          if (serveStaleArticles()) return;
+          return ctx.throw(502, "Scientific articles are temporarily unavailable.");
+        }
+        if (articles.length > 0) {
+          runtime.log.warn(
+            `Crossref returned ${articles.length} articles for "${species.scientific_name}".`,
+          );
+        } else if (serveStaleArticles()) {
+          return;
+        } else {
+          runtime.log.warn(
+            `Crossref found no matching articles for "${species.scientific_name}".`,
+          );
+        }
       }
 
       const cacheTtl = articles.length > 0

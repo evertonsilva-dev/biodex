@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
@@ -86,6 +86,7 @@ export function ContributionsPage() {
   const [creatingContent, setCreatingContent] = useState(false);
   const [editingContent, setEditingContent] = useState<ManagedEditorialContent | null>(null);
   const [roleDrafts, setRoleDrafts] = useState<Record<string, AssignableAccountRole>>({});
+  const reviewingSuggestionId = useRef<string | null>(null);
   const accountQuery = useQuery({
     queryKey: ['contributions', 'me', user?.id],
     queryFn: async ({ signal }) => getContributionAccount(await getAccessToken(), signal),
@@ -147,15 +148,31 @@ export function ContributionsPage() {
     }: {
       suggestionId: string;
       decision: 'approved' | 'rejected';
+      scientificName: string | null;
     }) => reviewPhotoSuggestion(await getAccessToken(), suggestionId, decision),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['contributions', 'pending-photo-suggestions'] }),
-        queryClient.invalidateQueries({ queryKey: ['contributions', 'my-photo-suggestions'] }),
-        queryClient.invalidateQueries({ queryKey: ['species-image'] }),
-      ]);
+    onSettled: async (_data, _error, variables) => {
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['contributions', 'pending-photo-suggestions'] }),
+          queryClient.invalidateQueries({ queryKey: ['contributions', 'my-photo-suggestions'] }),
+          queryClient.invalidateQueries({ queryKey: ['species-image'] }),
+        ]);
+      } finally {
+        if (reviewingSuggestionId.current === variables.suggestionId) {
+          reviewingSuggestionId.current = null;
+        }
+      }
     },
   });
+  const submitPhotoReview = (
+    suggestionId: string,
+    scientificName: string | null,
+    decision: 'approved' | 'rejected',
+  ) => {
+    if (reviewingSuggestionId.current) return;
+    reviewingSuggestionId.current = suggestionId;
+    reviewMutation.mutate({ suggestionId, scientificName, decision });
+  };
   const saveContentMutation = useMutation({
     mutationFn: async ({
       id,
@@ -417,60 +434,81 @@ export function ContributionsPage() {
               {reviewMutation.isError && (
                 <ErrorMessage role="alert">{reviewMutation.error.message}</ErrorMessage>
               )}
+              {reviewMutation.isPending && (
+                <Status role="status" aria-live="polite">
+                  {reviewMutation.variables?.decision === 'approved' ? 'Aprovando' : 'Recusando'}{' '}
+                  {reviewMutation.variables?.scientificName ?? 'a imagem'}… Aguarde a confirmação;
+                  as ações ficam bloqueadas durante a atualização.
+                </Status>
+              )}
               {pendingPhotosQuery.data?.length === 0 && (
                 <Status>Não há sugestões pendentes no momento.</Status>
               )}
               {pendingPhotosQuery.data && pendingPhotosQuery.data.length > 0 && (
                 <Grid>
-                  {pendingPhotosQuery.data.map((suggestion) => (
-                    <Card key={suggestion.id}>
-                      <PhotoRow>
-                        <img src={suggestion.photo.url} alt="" loading="lazy" />
-                        <div>
-                          <CardTitle>{suggestion.scientificName ?? suggestion.speciesId}</CardTitle>
-                          <Muted>
-                            Sugerida por {suggestion.submittedBy} ·{' '}
-                            {formatDate(suggestion.createdAt)}
-                          </Muted>
-                          <Muted>
-                            {suggestion.photo.attribution} · {suggestion.photo.license} ·{' '}
-                            {suggestion.photo.source}
-                          </Muted>
-                          <TextLink
-                            href={suggestion.photo.referenceUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                  {pendingPhotosQuery.data.map((suggestion) => {
+                    const isReviewingSuggestion = reviewMutation.isPending
+                      && reviewMutation.variables?.suggestionId === suggestion.id;
+                    return (
+                      <Card key={suggestion.id}>
+                        <PhotoRow>
+                          <img src={suggestion.photo.url} alt="" loading="lazy" />
+                          <div>
+                            <CardTitle>{suggestion.scientificName ?? suggestion.speciesId}</CardTitle>
+                            <Muted>
+                              Sugerida por {suggestion.submittedBy} ·{' '}
+                              {formatDate(suggestion.createdAt)}
+                            </Muted>
+                            <Muted>
+                              {suggestion.photo.attribution} · {suggestion.photo.license} ·{' '}
+                              {suggestion.photo.source}
+                            </Muted>
+                            <TextLink
+                              href={suggestion.photo.referenceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Ver origem da imagem
+                            </TextLink>
+                          </div>
+                        </PhotoRow>
+                        <ButtonRow>
+                          <PrimaryButton
+                            type="button"
+                            disabled={reviewMutation.isPending}
+                            aria-busy={isReviewingSuggestion}
+                            onClick={() => submitPhotoReview(
+                              suggestion.id,
+                              suggestion.scientificName,
+                              'approved',
+                            )}
                           >
-                            Ver origem da imagem
-                          </TextLink>
-                        </div>
-                      </PhotoRow>
-                      <ButtonRow>
-                        <PrimaryButton
-                          type="button"
-                          disabled={reviewMutation.isPending}
-                          onClick={() => reviewMutation.mutate({
-                            suggestionId: suggestion.id,
-                            decision: 'approved',
-                          })}
-                        >
-                          <Check size={14} aria-hidden="true" />
-                          Aprovar como melhor foto
-                        </PrimaryButton>
-                        <DangerButton
-                          type="button"
-                          disabled={reviewMutation.isPending}
-                          onClick={() => reviewMutation.mutate({
-                            suggestionId: suggestion.id,
-                            decision: 'rejected',
-                          })}
-                        >
-                          <X size={14} aria-hidden="true" />
-                          Recusar
-                        </DangerButton>
-                      </ButtonRow>
-                    </Card>
-                  ))}
+                            <Check size={14} aria-hidden="true" />
+                            {isReviewingSuggestion
+                              && reviewMutation.variables?.decision === 'approved'
+                              ? 'Aprovando…'
+                              : 'Aprovar como melhor foto'}
+                          </PrimaryButton>
+                          <DangerButton
+                            type="button"
+                            disabled={reviewMutation.isPending}
+                            aria-busy={isReviewingSuggestion}
+                            onClick={() => submitPhotoReview(
+                              suggestion.id,
+                              suggestion.scientificName,
+                              'rejected',
+                            )}
+                          >
+                            <X size={14} aria-hidden="true" />
+                            {isReviewingSuggestion
+                              && reviewMutation.variables?.decision === 'rejected'
+                              ? 'Recusando…'
+                              : 'Recusar'}
+                          </DangerButton>
+                        </ButtonRow>
+                      </Card>
+                    );
+                  })}
                 </Grid>
               )}
             </Section>

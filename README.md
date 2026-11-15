@@ -58,7 +58,7 @@ apps/
 
 2. Configure a API copiando `apps/api/.env.example` para `apps/api/.env` e preenchendo a conexão PostgreSQL. Use `DATABASE_URL` pooled para a API e mantenha as variáveis individuais se os importadores precisarem acessar um PostgreSQL local.
 
-   A busca de artigos usa metadados do OpenAlex. Configure opcionalmente `OPENALEX_API_KEY` na API para evitar depender da cota anônima compartilhada; mantenha essa chave somente no ambiente do backend.
+   A busca de artigos usa OpenAlex e consulta Crossref como alternativa quando o OpenAlex falha. Configure `OPENALEX_API_KEY` como secret no Worker de produção para usar a chave gratuita do OpenAlex; no servidor local, a chave continua opcional. Mantenha-a somente no ambiente do backend. Se os dois provedores falharem e houver resultados anteriores em cache, a API os entrega mesmo vencidos; sem cache anterior, a busca pode retornar `502` até um provedor voltar a responder.
 
 3. Inicie a API:
 

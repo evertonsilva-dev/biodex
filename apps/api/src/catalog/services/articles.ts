@@ -28,6 +28,30 @@ const openAlexResponseSchema = z.object({
   results: z.array(openAlexWorkSchema),
 });
 
+const crossrefAuthorSchema = z.object({
+  name: z.string().nullable().optional(),
+  given: z.string().nullable().optional(),
+  family: z.string().nullable().optional(),
+}).passthrough();
+
+const crossrefWorkSchema = z.object({
+  DOI: z.string().nullable().optional(),
+  title: z.array(z.string()).optional().default([]),
+  author: z.array(crossrefAuthorSchema).optional().default([]),
+  published: z.object({
+    'date-parts': z.array(z.array(z.number().int())).optional(),
+  }).nullable().optional(),
+  'container-title': z.array(z.string()).optional().default([]),
+  URL: z.string().nullable().optional(),
+  abstract: z.string().nullable().optional(),
+}).passthrough();
+
+const crossrefResponseSchema = z.object({
+  message: z.object({
+    items: z.array(crossrefWorkSchema),
+  }),
+});
+
 const scientificArticleSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -154,6 +178,77 @@ export async function searchOpenAlexArticles(
     if (seen.has(key)) continue;
     seen.add(key);
     articles.push(article);
+
+    if (articles.length === MAX_RESULTS) break;
+  }
+
+  return articles;
+}
+
+export async function searchCrossrefArticles(
+  names: string[],
+): Promise<ScientificArticle[]> {
+  const searchName = names
+    .map((name) => name.replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim())
+    .find((name) => name.length >= 3);
+  if (!searchName) return [];
+
+  const params = new URLSearchParams({
+    'query.bibliographic': searchName,
+    rows: '25',
+    select: 'DOI,title,author,published,container-title,URL,abstract',
+  });
+  const response = await fetch(`https://api.crossref.org/works?${params}`, {
+    headers: { 'User-Agent': 'Biodex/1.0 (biodiversity catalog)' },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) {
+    throw new Error(`Crossref responded with status ${response.status}.`);
+  }
+
+  const payload = crossrefResponseSchema.parse(await response.json());
+  const searchTerms = names
+    .map((name) => name.trim().toLocaleLowerCase('en'))
+    .filter((name) => name.length >= 3);
+  const articles: ScientificArticle[] = [];
+  const seen = new Set<string>();
+
+  for (const work of payload.message.items) {
+    const title = work.title[0]?.replace(/<[^>]*>/g, '').trim();
+    const searchableText = `${title ?? ''} ${work.abstract ?? ''}`
+      .toLocaleLowerCase('en');
+    if (!title || !searchTerms.some((name) => searchableText.includes(name))) {
+      continue;
+    }
+
+    const doi = normalizedDoi(work.DOI);
+    const doiUrl = doi ? `https://doi.org/${doi}` : null;
+    const url = doiUrl ?? safeHttpsUrl(work.URL);
+    if (!url) continue;
+
+    const key = doi?.toLocaleLowerCase('en') ?? url;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const authors = work.author
+      .map(({ name, given, family }) =>
+        name?.trim() || [given, family].filter(Boolean).join(' ').trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const year = work.published?.['date-parts']?.[0]?.[0];
+
+    articles.push({
+      id: doiUrl ?? url,
+      title,
+      authors,
+      authorCount: work.author.length,
+      year: year && year > 0 ? year : null,
+      journal: work['container-title'][0]?.trim() || null,
+      doi,
+      url,
+      openAccessUrl: null,
+      isOpenAccess: false,
+    });
 
     if (articles.length === MAX_RESULTS) break;
   }

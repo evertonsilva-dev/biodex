@@ -32,6 +32,7 @@ const database: CatalogDatabase = {
 
 const runtime = {
   db: database,
+  openAlexApiKey: env.OPENALEX_API_KEY ?? '',
   log: {
     error: (message: string) => console.error(message),
     warn: (message: string) => console.warn(message),
