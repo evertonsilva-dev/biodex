@@ -24,6 +24,6 @@
     "CORS_ORIGINS": "",
   },
   "secrets": {
-    "required": ["ROOT_USER_ID", "CPF_ENCRYPTION_KEY"],
+    "required": ["ROOT_USER_ID", "CPF_ENCRYPTION_KEY", "OPENALEX_API_KEY"],
   },
 }

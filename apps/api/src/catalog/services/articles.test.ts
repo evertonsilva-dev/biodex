@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   parseCachedScientificArticles,
+  searchCrossrefArticles,
   searchOpenAlexArticles,
 } from './articles.js';
 
@@ -83,6 +84,60 @@ test('OpenAlex search reports provider rate limits', async (context) => {
     searchOpenAlexArticles(['Panthera leo']),
     /OpenAlex responded with status 429/,
   );
+});
+
+test('Crossref fallback filters relevant results and normalizes metadata', async (context) => {
+  let requestUrl: URL | undefined;
+  let requestHeaders: Headers | undefined;
+  context.mock.method(globalThis, 'fetch', async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ) => {
+    requestUrl = new URL(input.toString());
+    requestHeaders = new Headers(init?.headers);
+    return Response.json({
+      message: {
+        items: [
+          {
+            DOI: 'https://doi.org/10.1000/lion',
+            title: ['A study of <i>Panthera leo</i>'],
+            author: [
+              { given: 'First', family: 'Author' },
+              { name: 'Research Group' },
+            ],
+            published: { 'date-parts': [[2024, 5, 1]] },
+            'container-title': ['Journal of Biodiversity'],
+            URL: 'https://doi.org/10.1000/lion',
+            abstract: '<jats:p>Study of lions.</jats:p>',
+          },
+          {
+            DOI: '10.1000/unrelated',
+            title: ['A study of tigers'],
+            author: [],
+            URL: 'https://doi.org/10.1000/unrelated',
+          },
+        ],
+      },
+    });
+  });
+
+  const articles = await searchCrossrefArticles(['Panthera leo']);
+
+  assert.equal(articles.length, 1);
+  assert.equal(articles[0].title, 'A study of Panthera leo');
+  assert.deepEqual(articles[0].authors, ['First Author', 'Research Group']);
+  assert.equal(articles[0].authorCount, 2);
+  assert.equal(articles[0].year, 2024);
+  assert.equal(articles[0].journal, 'Journal of Biodiversity');
+  assert.equal(articles[0].doi, '10.1000/lion');
+  assert.equal(articles[0].url, 'https://doi.org/10.1000/lion');
+  assert.equal(articles[0].openAccessUrl, null);
+  assert.equal(
+    requestUrl?.searchParams.get('query.bibliographic'),
+    'Panthera leo',
+  );
+  assert.equal(requestUrl?.searchParams.get('rows'), '25');
+  assert.match(requestHeaders?.get('User-Agent') ?? '', /^Biodex\//);
 });
 
 test('invalid article cache data is rejected', () => {
